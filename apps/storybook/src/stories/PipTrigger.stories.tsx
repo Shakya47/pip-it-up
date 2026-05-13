@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { PipTrigger, PipWrapper } from '@pip-it-up/react';
 import { expect, within } from '@storybook/test';
 
@@ -46,6 +46,7 @@ export const AsChild: Story = {
     ),
   },
   play: async ({ canvasElement }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const canvas = within(canvasElement) as any;
     const button = canvas.getByRole('button', { name: /Custom Button Element/i });
     await expect(button).toBeInTheDocument();

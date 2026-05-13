@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { PipWrapper, PipTrigger } from '@pip-it-up/react';
 import { expect, within } from '@storybook/test';
 
@@ -40,6 +40,7 @@ export const Default: Story = {
     ),
   },
   play: async ({ canvasElement, step }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const canvas = within(canvasElement) as any;
     const button = canvas.getByRole('button', { name: /Toggle PiP/i });
     

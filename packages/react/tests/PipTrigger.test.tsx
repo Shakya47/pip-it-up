@@ -41,7 +41,7 @@ describe('PipTrigger', () => {
     
     // The trigger might be in the main document, or the wrapper's content moved
     // Let's check both
-    const pipWin = (window as any).documentPictureInPicture.window;
+
     const { findByRole } = within(document.body);
     // Since trigger is outside the wrapper here, it stays in main document
     expect(await findByRole('button', { name: '⊠ Close' })).toBeInTheDocument();
