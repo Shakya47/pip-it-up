@@ -166,6 +166,10 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
       return () => listeners.delete(fn);
     },
     getState: () => state,
+    updateElements: (elements) => {
+      if (elements.contentEl !== undefined) options.contentEl = elements.contentEl;
+      if (elements.originEl !== undefined) options.originEl = elements.originEl;
+    },
     destroy: () => {
       close();
       unregisterPip(id);

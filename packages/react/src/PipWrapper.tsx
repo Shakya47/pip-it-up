@@ -42,6 +42,13 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   const instance = instanceRef.current!;
 
   useEffect(() => {
+      instance.updateElements({
+        contentEl: contentRef.current || undefined,
+        originEl: originRef.current || undefined
+      });
+  });
+
+  useEffect(() => {
     return () => {
       instance.destroy();
     };

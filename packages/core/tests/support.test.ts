@@ -28,7 +28,7 @@ describe('support', () => {
 
   it('returns false when window is undefined (SSR)', () => {
     const originalWindow = global.window;
-    // @ts-ignore
+    // @ts-expect-error Testing invalid assignment
     delete global.window;
     
     expect(isSupported()).toBe(false);

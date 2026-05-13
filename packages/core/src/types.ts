@@ -51,5 +51,6 @@ export interface PipInstance {
   getPipWindow: () => Window | null;
   subscribe: (fn: () => void) => () => void; // React useSyncExternalStore typically subscribes with a no-arg function
   getState: () => PipState;
+  updateElements: (elements: { contentEl?: HTMLElement; originEl?: HTMLElement }) => void;
   destroy: () => void;
 }
