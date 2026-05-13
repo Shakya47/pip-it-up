@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { PipWrapper } from '../src/PipWrapper';
@@ -21,7 +21,7 @@ describe('PipTrigger', () => {
     const pipWinBody = pipWin ? pipWin.document.body : document.body;
     
     // Instead of screen, use within(pipWinBody) or screen if it didn't move
-    const { findByRole } = require('@testing-library/react').within(pipWinBody);
+    const { findByRole } = within(pipWinBody);
     expect(await findByRole('button', { name: '⊠ Close' })).toBeTruthy();
   });
 
@@ -42,8 +42,7 @@ describe('PipTrigger', () => {
     // The trigger might be in the main document, or the wrapper's content moved
     // Let's check both
     const pipWin = (window as any).documentPictureInPicture.window;
-    const pipWinBody = pipWin ? pipWin.document.body : document.body;
-    const { findByRole } = require('@testing-library/react').within(document.body);
+    const { findByRole } = within(document.body);
     // Since trigger is outside the wrapper here, it stays in main document
     expect(await findByRole('button', { name: '⊠ Close' })).toBeInTheDocument();
   });
