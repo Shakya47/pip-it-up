@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x, 22.x]
     
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         run: pnpm lint
         
       - name: Test
-        run: pnpm test -- --coverage
+        run: pnpm exec turbo run test -- --coverage
         
       - name: Build
         run: pnpm build
