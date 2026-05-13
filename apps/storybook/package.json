@@ -1,7 +1,7 @@
 {
   "name": "storybook",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "storybook dev -p 6006",
@@ -38,7 +38,7 @@
     "eslint-plugin-storybook": "^10.3.6",
     "globals": "^17.6.0",
     "playwright": "^1.60.0",
-    "storybook": "^10.3.6",
+    "storybook": "^0.0.1",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
