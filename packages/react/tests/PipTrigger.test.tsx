@@ -17,7 +17,12 @@ describe('PipTrigger', () => {
     const trigger = await screen.findByRole('button', { name: '↗ Pop out' });
     await user.click(trigger);
     
-    expect(await screen.findByRole('button', { name: '⊠ Close' })).toBeInTheDocument();
+    const pipWin = (window as any).documentPictureInPicture.window;
+    const pipWinBody = pipWin ? pipWin.document.body : document.body;
+    
+    // Instead of screen, use within(pipWinBody) or screen if it didn't move
+    const { findByRole } = require('@testing-library/react').within(pipWinBody);
+    expect(await findByRole('button', { name: '⊠ Close' })).toBeTruthy();
   });
 
   it('works decoupled via pipId', async () => {
@@ -33,7 +38,14 @@ describe('PipTrigger', () => {
     const trigger = await screen.findByRole('button', { name: '↗ Pop out' }, { timeout: 3000 });
     
     await user.click(trigger);
-    expect(await screen.findByRole('button', { name: '⊠ Close' })).toBeInTheDocument();
+    
+    // The trigger might be in the main document, or the wrapper's content moved
+    // Let's check both
+    const pipWin = (window as any).documentPictureInPicture.window;
+    const pipWinBody = pipWin ? pipWin.document.body : document.body;
+    const { findByRole } = require('@testing-library/react').within(document.body);
+    // Since trigger is outside the wrapper here, it stays in main document
+    expect(await findByRole('button', { name: '⊠ Close' })).toBeInTheDocument();
   });
 
   it('supports asChild pattern', async () => {
