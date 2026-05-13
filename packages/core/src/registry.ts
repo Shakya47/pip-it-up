@@ -40,3 +40,8 @@ const notifyListeners = (id: string) => {
     }
   }
 };
+
+export const clearRegistry = () => {
+  registry.clear();
+  listeners.clear();
+};

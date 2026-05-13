@@ -2,7 +2,7 @@
 
 import React, { forwardRef, useEffect, useRef, useSyncExternalStore, ElementType, ReactNode, useImperativeHandle } from 'react';
 import { createPip } from '@pip-it-up/core';
-import type { PipOptions, PipInstance } from '@pip-it-up/core';
+import type { PipOptions, PipInstance, PipState } from '@pip-it-up/core';
 import { PipContext } from './PipContext';
 import { PipPortal } from './PipPortal';
 
@@ -14,6 +14,9 @@ export interface PipWrapperProps extends PipOptions {
   originAs?: ElementType;
   children?: ReactNode;
 }
+
+const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
+const getServerState = () => emptyServerState;
 
 export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) => {
   const {
@@ -47,7 +50,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   const state = useSyncExternalStore(
     instance.subscribe,
     instance.getState,
-    () => ({ isOpen: false, isSupported: false, pipWindow: null })
+    getServerState
   );
 
   const isControlled = controlledOpen !== undefined;

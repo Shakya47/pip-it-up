@@ -24,7 +24,10 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "vitest": "^1.4.0",
-    "typescript": "^5.4.0"
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
   }
 }

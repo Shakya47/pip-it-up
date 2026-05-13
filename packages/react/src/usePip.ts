@@ -4,7 +4,8 @@ import { useRef, useEffect, useSyncExternalStore } from 'react';
 import { createPip } from '@pip-it-up/core';
 import type { PipOptions, PipInstance, PipState } from '@pip-it-up/core';
 
-const emptyGetState = (): PipState => ({ isOpen: false, isSupported: false, pipWindow: null });
+const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
+const emptyGetState = (): PipState => emptyServerState;
 
 export function usePip<T extends HTMLElement = HTMLDivElement>(options: PipOptions = {}) {
   const contentRef = useRef<T>(null);
