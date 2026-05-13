@@ -1,6 +1,14 @@
 {
   "name": "pip-it-up",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Shakya47/pip-it-up.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Shakya47/pip-it-up/issues"
+  },
+  "homepage": "https://github.com/Shakya47/pip-it-up#readme",
   "packageManager": "pnpm@10.29.3",
   "scripts": {
     "build": "turbo run build",

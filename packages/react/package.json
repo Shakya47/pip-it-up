@@ -1,6 +1,15 @@
 {
   "name": "@pip-it-up/react",
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shakya47/pip-it-up.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/Shakya47/pip-it-up/issues"
+  },
+  "homepage": "https://github.com/Shakya47/pip-it-up/tree/main/packages/react#readme",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
