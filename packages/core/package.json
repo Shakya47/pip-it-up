@@ -1,6 +1,6 @@
 {
   "name": "@pip-it-up/core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Vanilla JS engine for the Document Picture-in-Picture API — move, clone, or portal any DOM element into a floating PiP window",
   "keywords": [
     "picture-in-picture",

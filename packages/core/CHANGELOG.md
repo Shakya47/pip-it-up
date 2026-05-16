@@ -1,5 +1,11 @@
 # @pip-it-up/core
 
+## 0.1.5
+
+### Patch Changes
+
+- 896cc00: Remove debug console logs from production builds.
+
 ## 0.1.4
 
 ### Patch Changes
