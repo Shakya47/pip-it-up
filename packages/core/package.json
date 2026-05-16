@@ -38,7 +38,9 @@
     "access": "public",
     "provenance": true
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "src/global.d.ts"
+  ],
   "files": [
     "dist"
   ],
