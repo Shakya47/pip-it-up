@@ -22,11 +22,19 @@ describe('keyboard-bridge', () => {
 
     const handler = pipWin.addEventListener.mock.calls[0][1];
 
-    handler(new KeyboardEvent('keydown', { key: 'Escape' }));
+    const eventToDispatch = new KeyboardEvent('keydown', { key: 'Escape' });
+    Object.defineProperty(eventToDispatch, 'keyCode', { value: 27 });
+    Object.defineProperty(eventToDispatch, 'charCode', { value: 0 });
+    Object.defineProperty(eventToDispatch, 'which', { value: 27 });
+
+    handler(eventToDispatch);
 
     expect(openerWin.dispatchEvent).toHaveBeenCalled();
     const dispatchedEvent = openerWin.dispatchEvent.mock.calls[0][0] as KeyboardEvent;
     expect(dispatchedEvent.key).toBe('Escape');
+    expect(dispatchedEvent.keyCode).toBe(27);
+    expect(dispatchedEvent.charCode).toBe(0);
+    expect(dispatchedEvent.which).toBe(27);
 
     expect(dispatchSpy).not.toHaveBeenCalled();
 

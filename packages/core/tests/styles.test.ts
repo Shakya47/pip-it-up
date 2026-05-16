@@ -43,10 +43,12 @@ describe('styles', () => {
     await new Promise(r => setTimeout(r, 10));
     expect(pipWindow.document.head.innerHTML).toContain('margin: 0');
     
-    // Change style text
-    style.textContent = 'p { margin: 10px; }';
-    await new Promise(r => setTimeout(r, 10));
-    // Since we're in jsdom, childData/characterData mutations might not be perfect, but let's test node removal
+    // Change style text via nodeValue to trigger characterData mutation
+    if (style.firstChild) {
+      style.firstChild.nodeValue = 'p { margin: 10px; }';
+    }
+    await new Promise(r => setTimeout(r, 50));
+    expect(pipWindow.document.head.innerHTML).toContain('margin: 10px');
     
     // Remove style
     document.head.removeChild(style);

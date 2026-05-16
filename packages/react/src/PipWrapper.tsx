@@ -146,13 +146,19 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     }
   }, [state.isOpen, onOpenChange]);
 
-  const prevControlledOpenRef = useRef(controlledOpen);
+  const prevControlledOpenRef = useRef(false);
   useEffect(() => {
     if (isControlled) {
       const changedToOpen = controlledOpen && !prevControlledOpenRef.current;
       const changedToClosed = !controlledOpen && prevControlledOpenRef.current;
 
       if (changedToOpen && !state.isOpen) {
+        if (contentRef.current) {
+          const rect = contentRef.current.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            lastSizeRef.current = { width: rect.width, height: rect.height };
+          }
+        }
         instance.open().catch(err => {
           if (err.name === 'NotAllowedError') {
             console.warn('[PipWrapper] PiP window opening blocked: requires user activation. Ensure the "open" prop is changed within a user gesture handler.');
