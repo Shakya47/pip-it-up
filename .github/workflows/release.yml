@@ -32,10 +32,10 @@ jobs:
           cache: 'pnpm'
 
       - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build
-        run: pnpm build
+        run: pnpm exec turbo run build --filter='./packages/*'
 
       - name: Create Release Pull Request or Publish
         id: changesets
