@@ -1,7 +1,8 @@
+import { vi } from 'vitest';
 export const mockDocumentPictureInPicture = () => {
   let pipWindow: any = null;
 
-  const mockRequestWindow = async (options: any = {}) => {
+  const mockRequestWindow = vi.fn(async (options: any = {}) => {
     const win = {
       document: {
         body: document.createElement('body'),
@@ -43,7 +44,7 @@ export const mockDocumentPictureInPicture = () => {
 
     pipWindow = win;
     return win as unknown as Window;
-  };
+  });
 
   Object.defineProperty(window, 'documentPictureInPicture', {
     value: {

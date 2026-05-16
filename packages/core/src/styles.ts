@@ -26,7 +26,6 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
   const openerDoc = window.document;
   const nodeMap = new WeakMap<Node, Node>();
 
-  // Initial copy
   const stylesheets = Array.from(openerDoc.querySelectorAll('link[rel="stylesheet"], style'));
   for (const sheet of stylesheets) {
     const clone = sheet.cloneNode(true);
@@ -37,11 +36,32 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
   syncAttrs(openerDoc.documentElement, pipDoc.documentElement);
   syncAttrs(openerDoc.body, pipDoc.body);
 
+  const pendingTextUpdates = new Map<Node, Node>();
+  let pendingRafId: number | null = null;
+
+  const flushTextUpdates = () => {
+    pendingRafId = null;
+    for (const [source, clone] of pendingTextUpdates) {
+      clone.textContent = source.textContent;
+    }
+    pendingTextUpdates.clear();
+  };
+
+  const scheduleTextUpdate = (sourceStyle: Node, clone: Node) => {
+    pendingTextUpdates.set(sourceStyle, clone);
+    if (pendingRafId === null) {
+      pendingRafId = requestAnimationFrame(flushTextUpdates);
+    }
+  };
+
   const headObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'childList') {
         for (const node of Array.from(mutation.addedNodes)) {
           if (node.nodeName === 'STYLE' || (node.nodeName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet')) {
+            const existingClone = nodeMap.get(node);
+            if (existingClone) continue;
+
             const clone = node.cloneNode(true);
             nodeMap.set(node, clone);
             pipDoc.head.appendChild(clone);
@@ -55,7 +75,6 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
           }
         }
       } else if (mutation.type === 'characterData') {
-        // Find the style tag parent
         let current: Node | null = mutation.target;
         while (current && current.nodeName !== 'STYLE') {
           current = current.parentNode;
@@ -63,7 +82,7 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
         if (current) {
           const clone = nodeMap.get(current);
           if (clone) {
-            clone.textContent = current.textContent;
+            scheduleTextUpdate(current, clone);
           }
         }
       }
@@ -82,11 +101,9 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
         const source = mutation.target as HTMLElement;
         const attrName = mutation.attributeName;
         if (!attrName) continue;
-        
         let target: HTMLElement | null = null;
         if (source === openerDoc.documentElement) target = pipDoc.documentElement;
         else if (source === openerDoc.body) target = pipDoc.body;
-        
         if (target) {
           const val = source.getAttribute(attrName);
           if (val === null) {
@@ -105,5 +122,10 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
   return () => {
     headObserver.disconnect();
     attrObserver.disconnect();
+    if (pendingRafId !== null) {
+      cancelAnimationFrame(pendingRafId);
+      pendingRafId = null;
+    }
+    pendingTextUpdates.clear();
   };
 };

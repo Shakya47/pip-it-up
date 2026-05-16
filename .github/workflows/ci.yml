@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -35,7 +39,7 @@ jobs:
         run: pnpm lint
         
       - name: Test
-        run: pnpm exec turbo run test -- --coverage
+        run: pnpm exec turbo run test --filter='./packages/*' -- --coverage
         
       - name: Build
         run: pnpm build

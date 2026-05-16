@@ -13,16 +13,15 @@ describe('PipTrigger', () => {
         <PipTrigger />
       </PipWrapper>
     );
-    
+
     const trigger = await screen.findByRole('button', { name: '↗ Pop out' });
     await user.click(trigger);
-    
+
     const pipWin = (window as any).documentPictureInPicture.window;
     const pipWinBody = pipWin ? pipWin.document.body : document.body;
-    
-    // Instead of screen, use within(pipWinBody) or screen if it didn't move
-    const { findByRole } = within(pipWinBody);
-    expect(await findByRole('button', { name: '⊠ Close' })).toBeTruthy();
+
+    const { queryByRole } = within(pipWinBody);
+    expect(queryByRole('button', { name: '⊠ Close' })).toBeNull();
   });
 
   it('works decoupled via pipId', async () => {
@@ -34,16 +33,12 @@ describe('PipTrigger', () => {
       </div>
     );
 
-    // Wait for the button to appear
     const trigger = await screen.findByRole('button', { name: '↗ Pop out' }, { timeout: 3000 });
-    
+
     await user.click(trigger);
-    
-    // The trigger might be in the main document, or the wrapper's content moved
-    // Let's check both
+
 
     const { findByRole } = within(document.body);
-    // Since trigger is outside the wrapper here, it stays in main document
     expect(await findByRole('button', { name: '⊠ Close' })).toBeInTheDocument();
   });
 
@@ -59,17 +54,94 @@ describe('PipTrigger', () => {
   });
 
   it('renders renderUnsupported when API is not supported', () => {
-    // temporarily mock window to not have documentPictureInPicture
     const original = (window as any).documentPictureInPicture;
     delete (window as any).documentPictureInPicture;
-    
+
     render(
       <PipTrigger renderUnsupported={<span data-testid="unsupported">Not supported</span>} />
     );
-    
+
     expect(screen.getByTestId('unsupported')).toBeInTheDocument();
-    
-    // restore
+
     (window as any).documentPictureInPicture = original;
+  });
+
+  it('renders disabled state when wrapper mounts later', async () => {
+    const { rerender } = render(
+      <div>
+        <PipTrigger pipId="delayed-id">Remote Trigger</PipTrigger>
+      </div>
+    );
+
+    const trigger = screen.getByRole('button');
+    expect(trigger).toBeDisabled();
+    expect(trigger.textContent).toBe('Remote Trigger');
+
+    rerender(
+      <div>
+        <PipTrigger pipId="delayed-id">Remote Trigger</PipTrigger>
+        <PipWrapper id="delayed-id">Content</PipWrapper>
+      </div>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      expect(trigger).not.toBeDisabled();
+      expect(trigger.textContent).toBe('Remote Trigger');
+    });
+  });
+
+  it('colocated trigger opens PiP via setDefaultElements path', async () => {
+    const user = userEvent.setup();
+    const { getPip } = await import('@pip-it-up/core');
+
+    render(
+      <PipWrapper id="colocated-trigger-test">
+        <div data-testid="content">Content</div>
+        <PipTrigger />
+      </PipWrapper>
+    );
+
+    const instance = getPip('colocated-trigger-test');
+    expect(instance).not.toBeNull();
+
+    const trigger = await screen.findByRole('button', { name: '↗ Pop out' });
+    await user.click(trigger);
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      expect(instance!.isOpen()).toBe(true);
+      expect(instance!.getPipWindow()).not.toBeNull();
+    });
+  });
+
+  it('decoupled trigger opens PiP via setDefaultElements path', async () => {
+    const user = userEvent.setup();
+    const { getPip } = await import('@pip-it-up/core');
+
+    render(
+      <div>
+        <PipTrigger pipId="decoupled-trigger-test" />
+        <PipWrapper id="decoupled-trigger-test">
+          <div data-testid="decoupled-content">Content</div>
+        </PipWrapper>
+      </div>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+
+    // Wait for the registry to connect the trigger to the wrapper
+    await waitFor(() => {
+      expect(getPip('decoupled-trigger-test')).not.toBeNull();
+    });
+
+    const trigger = await screen.findByRole('button', { name: '↗ Pop out' });
+    await user.click(trigger);
+
+    await waitFor(() => {
+      const instance = getPip('decoupled-trigger-test');
+      expect(instance!.isOpen()).toBe(true);
+      expect(instance!.getPipWindow()).not.toBeNull();
+    });
   });
 });

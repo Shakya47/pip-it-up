@@ -5,10 +5,10 @@ export const executeFallback = (
   options: PipOptions,
   contentEl?: HTMLElement,
   originEl?: HTMLElement
-) => {
+): (() => void) | void => {
   if (typeof fallback === 'function') {
-    fallback({ contentEl, originEl, options });
-    return;
+    const result = fallback({ contentEl, originEl, resolvedOptions: options });
+    return typeof result === 'function' ? result : undefined;
   }
 
   switch (fallback) {
@@ -18,12 +18,9 @@ export const executeFallback = (
       } else {
         console.warn('pip-it-up: fallback="new-tab" requires fallbackUrl option');
       }
-      break;
-    case 'modal':
-      // The React bindings handle the modal rendering UI.
-      break;
+      return;
     case 'none':
       console.warn('pip-it-up: Document Picture-in-Picture is not supported in this browser.');
-      break;
+      return;
   }
 };

@@ -22,10 +22,7 @@ describe('executeFallback', () => {
     warnSpy.mockRestore();
   });
 
-  it('should handle modal', () => {
-    // just should not throw
-    expect(() => executeFallback('modal', {} as any)).not.toThrow();
-  });
+
 
   it('should do nothing for none and log warning', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});

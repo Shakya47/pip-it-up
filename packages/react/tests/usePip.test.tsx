@@ -5,7 +5,7 @@ import { usePip } from '../src/usePip';
 describe('usePip', () => {
   it('returns manual control flow API', async () => {
     const { result } = renderHook(() => usePip());
-    
+
     expect(result.current.isOpen).toBe(false);
     expect(result.current.isSupported).toBe(true);
 
@@ -29,7 +29,7 @@ describe('usePip', () => {
     delete (global.window as any).documentPictureInPicture;
 
     const { result } = renderHook(() => usePip());
-    
+
     expect(result.current.isOpen).toBe(false);
     expect(result.current.isSupported).toBe(false);
 

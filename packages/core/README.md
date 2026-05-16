@@ -1,6 +1,8 @@
 # @pip-it-up/core
 
-The vanilla JavaScript engine for the Document Picture-in-Picture API.
+The framework-agnostic JavaScript engine for the **Document Picture-in-Picture API**.
+
+`@pip-it-up/core` provides a robust, framework-agnostic way to manage the lifecycle of **Picture-in-Picture** windows, including style synchronization, element positioning, and keyboard event bridging.
 
 ## Installation
 
@@ -17,15 +19,14 @@ const contentEl = document.getElementById('my-content');
 const originEl = document.getElementById('my-placeholder');
 
 const pip = createPip({
-  contentEl,
-  originEl,
   mode: 'move', // 'move', 'clone', or 'portal'
   copyStyles: 'sync', // 'sync', 'once', or false
-  fallback: 'new-tab' // 'new-tab', 'modal', or 'none'
+  fallback: 'new-tab' // 'new-tab' or 'none'
 });
 
-pip.open().then(() => {
-  console.log('PiP opened!');
+// Elements are passed to the open call
+pip.open({ contentEl, originEl }).then(() => {
+  console.log('Picture-in-Picture window opened!');
 });
 ```
 
@@ -33,27 +34,28 @@ pip.open().then(() => {
 
 ### `createPip(options: PipOptions): PipInstance`
 
-Creates a new PiP instance.
+Creates a new **Picture-in-Picture** instance.
 
 #### `PipOptions`
-- `contentEl`: The DOM element to move/clone into the PiP window.
-- `originEl`: The placeholder element in the main window to return the content to when closed (required for `mode: 'move'`).
 - `mode`: `'move'` (default), `'clone'`, or `'portal'`.
 - `copyStyles`: `'sync'` (default), `'once'`, or `false`.
-- `fallback`: `'new-tab'` (default), `'modal'`, or `'none'`.
-- `width` / `height`: Initial dimensions.
+- `fallback`: `'new-tab'` (default) or `'none'`.
+- `width` / `height`: Initial dimensions. If not provided, they are inferred from the element passed to `open()`.
 - `lockAspectRatio`: Keep the window's aspect ratio fixed.
 - `fixedSize`: Prevent manual resizing.
+- `reserveSpace`: Preserve the layout in the main window when `mode: 'move'` (default: `true`).
+- `centerInPip`: Centering the content inside the window via flexbox (default: `false`).
+- `pipBodyStyles`: Custom styles for the PiP window's `<body>`.
 - `onPipWindowReady`: Callback fired when the window is fully prepared.
 
 #### `PipInstance`
-- `open()`: Requests and opens the PiP window.
-- `close()`: Closes the PiP window.
-- `toggle()`: Toggles the window state.
+- `open({ contentEl?, originEl? })`: Requests and opens the **Picture-in-Picture** window.
+- `close()`: Closes the window.
+- `toggle({ contentEl?, originEl? })`: Toggles the window state.
 - `isOpen()`: Returns boolean.
 - `getPipWindow()`: Returns the Window object or null.
 - `getState()`: Returns the current state.
 - `destroy()`: Cleans up listeners and DOM.
 
-### `getPip(id: string): PipInstance | undefined`
-Retrieves a created PiP instance by ID.
+### `getPip(id: string): PipInstance | null`
+Retrieves a created **Picture-in-Picture** instance by ID from the global registry.

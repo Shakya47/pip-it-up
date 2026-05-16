@@ -1,10 +1,17 @@
 import { PipWrapper, PipTrigger } from '@pip-it-up/react'
 
+import { ViewSourceLink } from '../components/ViewSourceLink'
+
 export default function DecoupledDemo() {
   return (
-    <section className="border rounded-lg p-6 flex flex-col gap-4">
-      <h2 className="text-2xl font-semibold">5. Decoupled trigger</h2>
-      <p className="text-gray-500 mb-4">trigger and wrapper in different parts of the tree.</p>
+    <section className="border rounded-lg p-6 flex flex-col gap-4 relative">
+      <div className="flex flex-col items-center text-center">
+        <h2 className="text-2xl font-semibold">4. Decoupled Trigger</h2>
+        <p className="text-gray-500">A remote trigger controlling a distant wrapper via a unique ID.</p>
+      </div>
+      <div className="absolute top-6 right-6">
+        <ViewSourceLink file="examples/playground/src/demos/DecoupledDemo.tsx" />
+      </div>
       
       <div className="p-4 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20 mb-4">
         <p className="mb-2">This button controls the PiP below:</p>
