@@ -1,10 +1,17 @@
 import { PipWrapper, PipTrigger } from '@pip-it-up/react'
 
+import { ViewSourceLink } from '../components/ViewSourceLink'
+
 export default function FixedSizeDemo() {
   return (
-    <section className="border rounded-lg p-6 flex flex-col gap-4">
-      <h2 className="text-2xl font-semibold">9. Fixed-size PiP</h2>
-      <p className="text-gray-500 mb-4">fixedSize + lockAspectRatio demo.</p>
+    <section className="border rounded-lg p-6 flex flex-col gap-4 relative">
+      <div className="flex flex-col items-center text-center">
+        <h2 className="text-2xl font-semibold">7. Fixed Size & Aspect Ratio</h2>
+        <p className="text-gray-500">Forces the PiP window to specific dimensions and locks its aspect ratio.</p>
+      </div>
+      <div className="absolute top-6 right-6">
+        <ViewSourceLink file="examples/playground/src/demos/FixedSizeDemo.tsx" />
+      </div>
 
       <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-xl flex justify-center">
         <PipWrapper 

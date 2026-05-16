@@ -16,14 +16,13 @@ export const startKeyboardBridge = (pipWindow: Window, openerWindow: Window = wi
     };
     
     const cloneEvent = new KeyboardEvent(e.type, init);
-    // Deprecated properties that some libraries still rely on
     Object.defineProperties(cloneEvent, {
       keyCode: { get: () => e.keyCode },
       charCode: { get: () => e.charCode },
       which: { get: () => e.which },
     });
 
-    const canceled = !openerWindow.document.dispatchEvent(cloneEvent);
+    const canceled = !openerWindow.dispatchEvent(cloneEvent);
     if (canceled) {
       e.preventDefault();
     }

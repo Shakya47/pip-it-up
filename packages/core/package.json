@@ -1,6 +1,20 @@
 {
   "name": "@pip-it-up/core",
-  "version": "0.1.1",
+  "version": "0.1.3",
+  "description": "Vanilla JS engine for the Document Picture-in-Picture API — move, clone, or portal any DOM element into a floating PiP window",
+  "keywords": [
+    "picture-in-picture",
+    "pip",
+    "document-picture-in-picture",
+    "floating-window",
+    "pip-window",
+    "document-pip",
+    "pip-api",
+    "web-api",
+    "browser-api",
+    "vanilla-js",
+    "framework-agnostic"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Shakya47/pip-it-up.git",

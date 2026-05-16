@@ -1,14 +1,6 @@
-declare global {
-  interface Window {
-    documentPictureInPicture?: {
-      requestWindow(options?: any): Promise<Window>;
-      window: Window | null;
-      onenter: ((this: Window, ev: Event) => any) | null;
-    };
-  }
-}
+import './global.d.ts';
 
-export type FallbackMode = "new-tab" | "modal" | "none" | ((ctx: { contentEl?: HTMLElement; originEl?: HTMLElement; options: PipOptions }) => void);
+export type FallbackMode = "new-tab" | "none" | ((ctx: { contentEl?: HTMLElement; originEl?: HTMLElement; resolvedOptions: PipOptions }) => void);
 export type DomMode = "move" | "clone" | "portal";
 export type CopyStylesMode = "once" | "sync";
 
@@ -24,6 +16,10 @@ export interface PipOptions {
   mode?: DomMode;
   fallback?: FallbackMode;
   fallbackUrl?: string;
+  forceFallback?: boolean;
+  reserveSpace?: boolean;
+  centerInPip?: boolean;
+  pipBodyStyles?: Partial<CSSStyleDeclaration> | false;
   forwardKeyboardEvents?: boolean;
   restoreScroll?: boolean;
   restoreFocus?: boolean;
@@ -32,8 +28,6 @@ export interface PipOptions {
   onPipWindowReady?: (pipWindow: Window) => void;
   onClose?: () => void;
   onError?: (err: Error) => void;
-  contentEl?: HTMLElement;
-  originEl?: HTMLElement;
 }
 
 export interface PipState {
@@ -49,8 +43,8 @@ export interface PipInstance {
   toggle: (elements?: { contentEl?: HTMLElement; originEl?: HTMLElement }) => Promise<void>;
   isOpen: () => boolean;
   getPipWindow: () => Window | null;
-  subscribe: (fn: () => void) => () => void; // React useSyncExternalStore typically subscribes with a no-arg function
+  subscribe: (fn: () => void) => () => void;
   getState: () => PipState;
-  updateElements: (elements: { contentEl?: HTMLElement; originEl?: HTMLElement }) => void;
+  setDefaultElements: (elements: { contentEl?: HTMLElement; originEl?: HTMLElement }) => void;
   destroy: () => void;
 }

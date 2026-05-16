@@ -7,7 +7,7 @@ import { PipContext } from './PipContext';
 import { useIsPipSupported } from './useIsPipSupported';
 import { Slot } from './Slot';
 
-const emptySubscribe = () => () => {};
+const emptySubscribe = () => () => { };
 const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
 const emptyGetState = (): PipState => emptyServerState;
 
@@ -19,6 +19,7 @@ export interface PipTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonEl
   renderOpen?: React.ReactNode;
   renderClose?: React.ReactNode;
   renderUnsupported?: React.ReactNode | null;
+  hideInPip?: boolean;
 }
 
 export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) => {
@@ -30,6 +31,7 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
     renderOpen,
     renderClose,
     renderUnsupported = null,
+    hideInPip = true,
     onClick,
     children,
     ...rest
@@ -38,17 +40,20 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
   const isSupported = useIsPipSupported();
   const context = useContext(PipContext);
 
-  const [registryInstance, setRegistryInstance] = useState<PipInstance | null>(pipId ? getPip(pipId) : null);
-
-  useEffect(() => {
-    if (pipId) {
-      setRegistryInstance(getPip(pipId));
-      const unsub = subscribeRegistry(pipId, () => {
-        setRegistryInstance(getPip(pipId));
-      });
-      return unsub;
-    }
+  const registrySubscribe = React.useCallback((callback: () => void) => {
+    if (!pipId) return () => { };
+    return subscribeRegistry(pipId, callback);
   }, [pipId]);
+
+  const getRegistrySnapshot = React.useCallback(() => {
+    return pipId ? getPip(pipId) : null;
+  }, [pipId]);
+
+  const registryInstance = useSyncExternalStore(
+    registrySubscribe,
+    getRegistrySnapshot,
+    () => null
+  );
 
   const instance = pipId ? registryInstance : context?.instance;
 
@@ -64,8 +69,19 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (!instance && pipId) {
-    return null; // Waiting for instance to register
+  if (!instance && pipId && mounted) {
+    const Comp = (asChild ? Slot : 'button') as React.ElementType;
+    return (
+      <Comp
+        ref={ref}
+        disabled={true}
+        style={{ opacity: 0.5, cursor: 'not-allowed' }}
+        {...(asChild ? {} : { type: 'button' })}
+        {...rest}
+      >
+        {asChild ? children : (children ?? renderOpen ?? openLabel)}
+      </Comp>
+    );
   }
 
   if (!mounted) {
@@ -77,28 +93,32 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
     return <>{renderUnsupported}</>;
   }
 
-  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) onClick(e);
-    if (instance) {
-      await instance.toggle();
-    }
+    const target = instance ?? context?.instance;
+    target?.toggle();
   };
 
   const isOpen = state.isOpen;
-  const content = isOpen 
-    ? (renderClose ?? closeLabel) 
+
+  if (hideInPip && isOpen && !!context) {
+    return null;
+  }
+
+  const content = isOpen
+    ? (renderClose ?? closeLabel)
     : (renderOpen ?? openLabel);
 
-  const Comp = asChild ? Slot : 'button';
+  const Comp = (asChild ? Slot : 'button') as React.ElementType;
 
   return (
     <Comp
-      ref={ref as any}
+      ref={ref}
       onClick={handleClick}
       {...(asChild ? {} : { type: 'button' })}
       {...rest}
     >
-      {asChild ? children : content}
+      {asChild ? children : (children ?? content)}
     </Comp>
   );
 });

@@ -1,6 +1,21 @@
 {
   "name": "pip-it-up",
   "private": true,
+  "description": "The ultimate framework-agnostic Document Picture-in-Picture toolkit for React, Vue, Angular, Svelte, and more",
+  "keywords": [
+    "picture-in-picture",
+    "pip",
+    "document-picture-in-picture",
+    "react-pip",
+    "vue-pip",
+    "angular-pip",
+    "svelte-pip",
+    "solid-pip",
+    "floating-window",
+    "pip-window",
+    "web-api",
+    "framework-agnostic"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Shakya47/pip-it-up.git"

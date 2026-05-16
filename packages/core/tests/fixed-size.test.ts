@@ -9,6 +9,10 @@ describe('fixed-size guard', () => {
       resizeTo: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
+      document: {
+        documentElement: { style: {} },
+        body: { style: {} }
+      }
     };
 
     const cleanup = attachFixedSizeGuard(mockWindow, 500, 400);

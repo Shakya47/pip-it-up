@@ -5,7 +5,7 @@ import { usePip } from '../src/usePip';
 describe('usePip', () => {
   it('returns manual control flow API', async () => {
     const { result } = renderHook(() => usePip());
-    
+
     expect(result.current.isOpen).toBe(false);
     expect(result.current.isSupported).toBe(true);
 
@@ -20,6 +20,16 @@ describe('usePip', () => {
     });
 
     expect(result.current.isOpen).toBe(false);
+
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(result.current.isOpen).toBe(true);
+
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(result.current.isOpen).toBe(false);
   });
 
   it('is SSR safe', () => {
@@ -29,7 +39,7 @@ describe('usePip', () => {
     delete (global.window as any).documentPictureInPicture;
 
     const { result } = renderHook(() => usePip());
-    
+
     expect(result.current.isOpen).toBe(false);
     expect(result.current.isSupported).toBe(false);
 

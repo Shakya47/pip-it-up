@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useSyncExternalStore } from 'react';
-import { createPip } from '@pip-it-up/core';
+import { useRef, useEffect, useSyncExternalStore, useLayoutEffect } from 'react';
+import { createPip, registerPip, unregisterPip } from '@pip-it-up/core';
 import type { PipOptions, PipInstance, PipState } from '@pip-it-up/core';
 
 const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
@@ -13,15 +13,34 @@ export function usePip<T extends HTMLElement = HTMLDivElement>(options: PipOptio
   const instanceRef = useRef<PipInstance | null>(null);
 
   if (!instanceRef.current) {
-    instanceRef.current = createPip(options);
+    const { id: _id, ...factoryOptions } = options;
+    instanceRef.current = createPip(factoryOptions);
   }
 
   const instance = instanceRef.current!;
 
   useEffect(() => {
+    if (options.id) {
+      registerPip(options.id, instance);
+      return () => unregisterPip(options.id!);
+    }
+  }, [options.id, instance]);
+
+  useEffect(() => {
     return () => {
       instance.destroy();
+      instanceRef.current = null;
     };
+  }, [instance]);
+
+  useLayoutEffect(() => {
+    if (typeof instance.setDefaultElements === 'function') {
+      instance.setDefaultElements({
+        contentEl: contentRef.current || undefined,
+        originEl: originRef.current || undefined,
+      });
+    }
+  // Ref objects are stable (same identity across renders), so deps are effectively [instance].
   }, [instance]);
 
   const state = useSyncExternalStore(

@@ -8,5 +8,6 @@ describe('exports', () => {
     expect(exports.usePip).toBeDefined();
     expect(exports.usePipContext).toBeDefined();
     expect(exports.useIsPipSupported).toBeDefined();
+    expect(exports.PipContext).toBeDefined();
   });
 });
