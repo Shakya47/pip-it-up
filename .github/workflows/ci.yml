@@ -33,16 +33,16 @@ jobs:
         run: pnpm install --frozen-lockfile
         
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm exec turbo run typecheck --filter='./packages/*'
         
       - name: Lint
-        run: pnpm lint
+        run: pnpm exec turbo run lint --filter='./packages/*'
         
       - name: Test
         run: pnpm exec turbo run test --filter='./packages/*' -- --coverage
         
       - name: Build
-        run: pnpm build
+        run: pnpm exec turbo run build --filter='./packages/*'
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

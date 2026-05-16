@@ -229,6 +229,6 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
     },
   };
 
-  console.log('[createPip] Creating instance with setDefaultElements:', typeof instance.setDefaultElements);
+
   return instance;
 };

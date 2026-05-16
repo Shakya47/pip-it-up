@@ -116,8 +116,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   );
 
   useLayoutEffect(() => {
-    console.log('[PipWrapper] instance:', instance);
-    console.log('[PipWrapper] instance.setDefaultElements:', typeof instance.setDefaultElements);
+
     
     if (typeof instance.setDefaultElements === 'function') {
       instance.setDefaultElements({
