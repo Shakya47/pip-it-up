@@ -20,6 +20,16 @@ describe('usePip', () => {
     });
 
     expect(result.current.isOpen).toBe(false);
+
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(result.current.isOpen).toBe(true);
+
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(result.current.isOpen).toBe(false);
   });
 
   it('is SSR safe', () => {
