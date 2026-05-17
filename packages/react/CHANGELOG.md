@@ -1,5 +1,13 @@
 # @pip-it-up/react
 
+## 0.1.6
+
+### Patch Changes
+
+- e204133: Removed unsupported lockAspectRatio prop and massively improved Registry and Iframe documentation.
+- Updated dependencies [e204133]
+  - @pip-it-up/core@0.1.6
+
 ## 0.1.5
 
 ### Patch Changes
