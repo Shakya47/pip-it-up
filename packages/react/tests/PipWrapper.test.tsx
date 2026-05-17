@@ -183,4 +183,27 @@ describe('PipWrapper', () => {
     expect(instance!.isOpen()).toBe(true);
     expect(instance!.getPipWindow()).not.toBeNull();
   });
+
+  it('triggers a development warning when iframe is detected inside PipWrapper', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    // @ts-ignore
+    process.env.NODE_ENV = 'development';
+    
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(
+      <PipWrapper id="iframe-warning-test" open={true}>
+        <iframe></iframe>
+      </PipWrapper>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    warnSpy.mockRestore();
+    // @ts-ignore
+    process.env.NODE_ENV = originalEnv;
+  });
 });
