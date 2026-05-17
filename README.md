@@ -1,5 +1,7 @@
 # pip-it-up
 
+> **Status: Public Beta** — Core API is stable. Some advanced features are in progress. See the [roadmap](#roadmap) for what's coming.
+
 The ultimate toolkit for the **Document Picture-in-Picture API**. 
 
 Build highly interactive, tear-away windows for your web applications with native DOM moving, styling synchronization, and graceful fallbacks. **pip-it-up** is a framework-agnostic solution that makes it easy to open any HTML content in a floating **Picture-in-Picture** window.
@@ -65,6 +67,17 @@ See our recipes for advanced usage:
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Roadmap
+
+These are actively being worked on:
+
+- [ ] **Seamless video/canvas/WebRTC PiP** — DOM node identity preserved across open/close (no more video restarts)
+- [ ] **Vue and Svelte bindings** — `@pip-it-up/vue`, `@pip-it-up/svelte`
+- [ ] **Angular bindings** — `@pip-it-up/angular` support
+- [ ] **v1.0 stable release** — locked API, full browser matrix testing
+
+Have a feature request? [Open an issue](https://github.com/Shakya47/pip-it-up/issues).
 
 ## License
 

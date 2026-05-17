@@ -142,6 +142,15 @@ router.onBeforeEach((to, from) => {
 });
 ```
 
+## Tips & Gotchas
+
+### Cross-Origin Iframes (YouTube, Vimeo, Maps, etc.)
+Cross-origin `<iframe>` embeds (YouTube, Vimeo, Google Maps, Spotify, etc.) will **not work** inside the PiP window. When the PiP window opens, the iframe is destroyed and recreated in a new document context with a different (or null) origin, causing the embedded service to reject the request (e.g., YouTube **Error 153**).
+
+This is a **browser platform limitation** of the Document Picture-in-Picture API, not a bug in `pip-it-up`.
+
+*   **Workaround**: For video content, use a native `<video>` element with a direct source URL instead of an iframe embed. Note that services like YouTube do not provide direct video file URLs — you'll need self-hosted or direct-URL video sources.
+
 ## Browser Security & Iframe Restrictions
 
 The **Document Picture-in-Picture API** is governed by strict browser security policies:

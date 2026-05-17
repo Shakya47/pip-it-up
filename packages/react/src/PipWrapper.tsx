@@ -260,6 +260,23 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     }
   }, [mode, state.isOpen, coreOptions.reserveSpace, instance]);
 
+  // Dev-time warning: detect cross-origin <iframe> elements that will break in PiP
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && state.isOpen && contentRef.current) {
+      const iframes = contentRef.current.querySelectorAll('iframe');
+      if (iframes.length > 0) {
+        console.warn(
+          '[PipWrapper] Detected <iframe> element(s) inside PipWrapper. ' +
+          'Cross-origin iframes (YouTube, Vimeo, Google Maps, etc.) will not work ' +
+          'in the PiP window due to browser security restrictions — the iframe reloads ' +
+          'in a new document context with a different origin, causing embed errors ' +
+          '(e.g., YouTube Error 153). Use native <video> elements with direct source URLs instead. ' +
+          'See: https://github.com/Shakya47/pip-it-up#tips--gotchas'
+        );
+      }
+    }
+  }, [state.isOpen]);
+
   return (
     <PipContext.Provider value={{ instance, state, isInsidePip: false }}>
       <OriginComponent ref={originRef} style={{ display: 'contents' }}>
