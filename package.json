@@ -32,7 +32,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "version-packages": "changeset version && pnpm install --no-frozen-lockfile"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

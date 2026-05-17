@@ -157,11 +157,11 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@pip-it-up/core':
-        specifier: ^0.1.5
-        version: 0.1.5
+        specifier: workspace:*
+        version: link:../../packages/core
       '@pip-it-up/react':
-        specifier: ^0.1.5
-        version: 0.1.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+        specifier: workspace:*
+        version: link:../../packages/react
       '@tiptap/pm':
         specifier: ^3.23.2
         version: 3.23.2
@@ -968,15 +968,6 @@ packages:
 
   '@oxc-project/types@0.129.0':
     resolution: {integrity: sha512-3oz8m3FGdr2nDXVqmFUw7jolKliC4MoyXYIG2c7gpjBnzUWQpUGIYcXYKxTdTi+N2jusvt610ckTMkxdwHkYEg==}
-
-  '@pip-it-up/core@0.1.5':
-    resolution: {integrity: sha512-sd0xjOAC/6eF16FcoMr5hvHu4kLDYSq9aPc8V/GbP/2FdF2r6Fyt20qaFPoERi6aTvBRolRB8KXc4O6k2WAehA==}
-
-  '@pip-it-up/react@0.1.5':
-    resolution: {integrity: sha512-Pf5mOAEd9CxooUz0K/dakyykrsaceqk3NI4fmLRWcbgwUxSAt7FxuN+ybn+CN8mu5pAILvlYmZgeH/npY+lqYg==}
-    peerDependencies:
-      react: '>=18'
-      react-dom: '>=18'
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -4998,14 +4989,6 @@ snapshots:
       fastq: 1.20.1
 
   '@oxc-project/types@0.129.0': {}
-
-  '@pip-it-up/core@0.1.5': {}
-
-  '@pip-it-up/react@0.1.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
-    dependencies:
-      '@pip-it-up/core': 0.1.5
-      react: 19.2.6
-      react-dom: 19.2.6(react@19.2.6)
 
   '@polka/url@1.0.0-next.29': {}
 
