@@ -1,5 +1,11 @@
 # @pip-it-up/core
 
+## 0.1.6
+
+### Patch Changes
+
+- e204133: Removed unsupported lockAspectRatio prop and massively improved Registry and Iframe documentation.
+
 ## 0.1.5
 
 ### Patch Changes
