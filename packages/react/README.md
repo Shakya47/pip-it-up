@@ -1,5 +1,7 @@
 # @pip-it-up/react
 
+> **Status: Public Beta** — Core API is stable. Some advanced features are in progress. See the [roadmap](#roadmap) for what's coming.
+
 React bindings for `pip-it-up` — the **Document Picture-in-Picture** engine.
 
 ## What is Document Picture-in-Picture?
@@ -134,6 +136,13 @@ return (
 );
 ```
 
+### Cross-Origin Iframes (YouTube, Vimeo, Maps, etc.)
+Cross-origin `<iframe>` embeds (YouTube, Vimeo, Google Maps, Spotify, etc.) will **not work** inside the PiP window. When PiP opens, React unmounts children and remounts them into a new document context. The iframe reloads in this new context with a different (or null) origin, causing the embedded service to reject the request (e.g., YouTube **Error 153**).
+
+This is a **browser platform limitation** of the Document Picture-in-Picture API, not a bug in `pip-it-up`.
+
+*   **Workaround**: For video content, use a native `<video>` element with a direct source URL instead of an iframe embed. Note that services like YouTube do not provide direct video file URLs — you'll need self-hosted or direct-URL video sources.
+
 ## Next.js / SSR
 Because the **Document Picture-in-Picture API** is browser-only, ensure components interacting with it are rendered on the client (`"use client"`).
 
@@ -144,4 +153,15 @@ The **Document Picture-in-Picture API** is governed by strict browser security p
 - **Top-Level Context Required**: The browser strictly prohibits opening a PiP window from inside a nested `<iframe>` (attempting this will throw `NotAllowedError: Opening a PiP window is only allowed from a top-level browsing context`).
 - **Online Editors (CodeSandbox, StackBlitz)**: Because online sandboxes run your live preview inside an iframe, the PiP window will fail. To test or demo your code successfully, you **must open the live preview in a new standalone browser window/tab** (look for the "Open in New Window" icon in the sandbox's preview panel).
 - **Secure Context (HTTPS)**: The API is only active in secure environments (using `https://` or `localhost`).
+
+## Roadmap
+
+These are actively being worked on:
+
+- [ ] **Seamless video/canvas/WebRTC PiP** — DOM node identity preserved across open/close (no more video restarts)
+- [ ] **Vue and Svelte bindings** — `@pip-it-up/vue`, `@pip-it-up/svelte`
+- [ ] **Angular bindings** — `@pip-it-up/angular` support
+- [ ] **v1.0 stable release** — locked API, full browser matrix testing
+
+Have a feature request? [Open an issue](https://github.com/Shakya47/pip-it-up/issues).
 

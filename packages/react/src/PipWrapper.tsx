@@ -259,7 +259,6 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
       }
     }
   }, [mode, state.isOpen, coreOptions.reserveSpace, instance]);
-
   return (
     <PipContext.Provider value={{ instance, state, isInsidePip: false }}>
       <OriginComponent ref={originRef} style={{ display: 'contents' }}>

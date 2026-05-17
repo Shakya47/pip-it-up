@@ -1,7 +1,7 @@
 {
   "name": "@pip-it-up/react",
   "version": "0.1.6",
-  "description": "React components and hooks for the Document Picture-in-Picture API — PipWrapper, PipTrigger, usePip, useIsPipSupported",
+  "description": "React components and hooks for the Document Picture-in-Picture API — PipWrapper, PipTrigger, usePip, useIsPipSupported (public beta)",
   "keywords": [
     "picture-in-picture",
     "pip",
