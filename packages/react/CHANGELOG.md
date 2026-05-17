@@ -1,5 +1,15 @@
 # @pip-it-up/react
 
+## 0.1.7
+
+### Patch Changes
+
+- 76dd252: Update library package metadata and documentation to officially transition to a Public Beta status. This includes:
+  - Updating core and React npm package descriptions to signal Public Beta status.
+  - Adding top-level status badges and aligning the v1.0 public roadmap (featuring Vue, Svelte, and Angular binding tracks) in READMEs.
+- Updated dependencies [76dd252]
+  - @pip-it-up/core@0.1.7
+
 ## 0.1.6
 
 ### Patch Changes
