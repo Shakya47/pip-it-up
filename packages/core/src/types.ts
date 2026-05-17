@@ -10,7 +10,6 @@ export interface PipOptions {
   height?: number;
   preferInitialWindowPlacement?: boolean;
   disallowReturnToOpener?: boolean;
-  lockAspectRatio?: boolean;
   fixedSize?: boolean;
   copyStyles?: CopyStylesMode;
   mode?: DomMode;

@@ -14,6 +14,12 @@ The [Document Picture-in-Picture API](https://developer.mozilla.org/en-US/docs/W
 npm install @pip-it-up/react @pip-it-up/core
 ```
 
+## Live Demo
+
+Try out the components instantly in your browser:
+
+[![Edit in CodeSandbox](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/p/sandbox/pip-it-up-test-xfng5n)
+
 ## Components
 
 ### `<PipWrapper>`
@@ -41,9 +47,14 @@ const [isOpen, setIsOpen] = useState(false);
 
 Supports all `PipOptions` from `@pip-it-up/core`, including:
 
+- **`id`** (string): A unique identifier for the PiP instance. Required if you want to control this wrapper from a remote `<PipTrigger pipId="...">`.
 - **`width` / `height`** (number, optional): If provided, forces the PiP window to these dimensions. **If omitted, the library uses a `ResizeObserver` to automatically match the component's exact size on the page.**
-- **`mode`** (`"move" | "portal"`, default: `"move"`): 
-  - In this React package, both `"move"` and `"portal"` utilize **React Portals** to move content safely between windows. They behave identically: a placeholder is left in the original spot, and the component stays in the same React tree.
+- **`mode`** (deprecated, `"move" | "portal"`, default: `"move"`):
+  - *Deprecated*: The React package always uses **React Portals** (`"portal"` mode) internally because React manages its own DOM structure. Direct vanilla DOM manipulation (like `move`/`clone`) would break React's reconciler. Both options behave identically in `PipWrapper`.
+- **`fallback`** (`"new-tab" | "none"`, default: `"new-tab"`):
+  - Determines behavior when the Document PiP API is not supported.
+- **`fallbackUrl`** (string):
+  - The URL to open in a new browser tab when using `fallback="new-tab"`. This is required if `'new-tab'` is used.
 - **`copyStyles`** (`"sync" | "once" | false`, default: `"sync"`): 
   - `"sync"`: Real-time synchronization of CSS changes (MutationObserver).
   - `"once"`: One-time copy at window open.
@@ -57,10 +68,24 @@ Supports all `PipOptions` from `@pip-it-up/core`, including:
 
 A button that toggles the **Picture-in-Picture** window.
 
+#### Nested (Colocated)
+When placed directly inside a `<PipWrapper>`, it automatically controls its parent:
 ```tsx
 <PipTrigger asChild>
   <button className="my-custom-btn">Open Picture-in-Picture</button>
 </PipTrigger>
+```
+
+#### Decoupled (Remote)
+If your trigger and wrapper live in completely different parts of your React tree, you can link them using an `id` (powered by the core registry API):
+```tsx
+// Anywhere in your app (e.g., in a global Navbar)
+<PipTrigger pipId="main-player">Open Player</PipTrigger>
+
+// Somewhere else completely
+<PipWrapper id="main-player">
+  <Player />
+</PipWrapper>
 ```
 
 ## Hooks
@@ -111,3 +136,12 @@ return (
 
 ## Next.js / SSR
 Because the **Document Picture-in-Picture API** is browser-only, ensure components interacting with it are rendered on the client (`"use client"`).
+
+## Browser Security & Iframe Restrictions
+
+The **Document Picture-in-Picture API** is governed by strict browser security policies:
+
+- **Top-Level Context Required**: The browser strictly prohibits opening a PiP window from inside a nested `<iframe>` (attempting this will throw `NotAllowedError: Opening a PiP window is only allowed from a top-level browsing context`).
+- **Online Editors (CodeSandbox, StackBlitz)**: Because online sandboxes run your live preview inside an iframe, the PiP window will fail. To test or demo your code successfully, you **must open the live preview in a new standalone browser window/tab** (look for the "Open in New Window" icon in the sandbox's preview panel).
+- **Secure Context (HTTPS)**: The API is only active in secure environments (using `https://` or `localhost`).
+

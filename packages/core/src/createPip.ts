@@ -102,14 +102,12 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
 
       const width = reqWidth || 900;
       const height = reqHeight || 600;
-      const lockAspectRatio = options.lockAspectRatio || options.fixedSize || false;
 
       const pipWindow = await window.documentPictureInPicture!.requestWindow({
         width,
         height,
         disallowReturnToOpener: options.disallowReturnToOpener,
         preferInitialWindowPlacement: options.preferInitialWindowPlacement,
-        ...(lockAspectRatio ? { lockAspectRatio: true } : {}),
       });
 
       const onPipClose = () => close();
