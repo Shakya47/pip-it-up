@@ -15,6 +15,15 @@ export const snapshotScrollFocus = (rootEl: HTMLElement, opts: SnapshotOptions =
   if (restoreFocus) {
     activeElement = openerDoc.activeElement as HTMLElement | null;
 
+    // Cross-document `instanceof` caveat: these checks use the opener window's
+    // HTMLInputElement / HTMLTextAreaElement constructors. If the active element
+    // had been created in (or moved to) the PiP document, `instanceof` would
+    // return false because the PiP window has its own set of DOM constructors.
+    // This is safe here because `snapshotScrollFocus` is always called BEFORE
+    // the element move — at that point, all elements still belong to the opener
+    // document. Do NOT move this call to after `applyMoveMode` without
+    // switching to a tag-name check (e.g., `activeElement.tagName === 'INPUT'`).
+    // See MAINTENANCE_GUIDE.md Section 4 (Default Elements) and Section 8 (Sizing Stability).
     if (activeElement && (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)) {
       try {
         selectionStart = activeElement.selectionStart;

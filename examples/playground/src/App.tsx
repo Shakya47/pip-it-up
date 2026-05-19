@@ -13,11 +13,27 @@ function App() {
     <div className="w-full max-w-4xl mx-auto px-4 py-8 md:px-8 md:py-12 space-y-12 md:space-y-16">
       <IframeGuard />
 
-      <header className="mb-8 md:mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4">Pip-it-up Playground</h1>
-        <p className="text-base md:text-lg text-gray-600 dark:text-gray-400">
-          Demos and manual QA for @pip-it-up/react
-        </p>
+      <header className="mb-8 md:mb-12 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Pip-it-up Playground</h1>
+          <p className="text-base md:text-lg text-gray-600 dark:text-gray-400">
+            Demos and manual QA for @pip-it-up/react
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <a
+            href="https://codesandbox.io/p/sandbox/pip-it-up-test-xfng5n"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:opacity-85 transition-opacity"
+          >
+            <img 
+              src="https://codesandbox.io/static/img/play-codesandbox.svg" 
+              alt="Edit in CodeSandbox" 
+              className="h-10"
+            />
+          </a>
+        </div>
       </header>
 
       <BasicDemo />

@@ -1,5 +1,9 @@
 # @pip-it-up/core
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Shakya47/pip-it-up/main/docs/assets/pip-it-up-github-banner.gif" alt="pip-it-up-github-banner" width="100%" />
+</p>
+
 The framework-agnostic JavaScript engine for the **Document Picture-in-Picture API**.
 
 `@pip-it-up/core` provides a robust, framework-agnostic way to manage the lifecycle of **Picture-in-Picture** windows, including style synchronization, element positioning, and keyboard event bridging.
@@ -142,6 +146,14 @@ router.onBeforeEach((to, from) => {
 });
 ```
 
+## Security
+
+### Keyboard Event Bridge
+Only **user-initiated keystrokes** are forwarded from the PiP window to the opener. Programmatic `dispatchEvent()` calls in the PiP window are ignored (filtered via `e.isTrusted`) to prevent synthetic keystroke escalation from PiP-side scripts.
+
+### Fallback URL Validation
+When using `fallback: 'new-tab'`, the `fallbackUrl` option is validated to allow only `http:` and `https:` protocols. Dangerous schemes like `javascript:`, `data:`, and `file:` are rejected with a `console.warn`. All new-tab windows are opened with `noopener,noreferrer` to prevent reverse tabnabbing.
+
 ## Tips & Gotchas
 
 ### Cross-Origin Iframes (YouTube, Vimeo, Maps, etc.)
@@ -150,6 +162,15 @@ Cross-origin `<iframe>` embeds (YouTube, Vimeo, Google Maps, Spotify, etc.) will
 This is a **browser platform limitation** of the Document Picture-in-Picture API, not a bug in `pip-it-up`.
 
 *   **Workaround**: For video content, use a native `<video>` element with a direct source URL instead of an iframe embed. Note that services like YouTube do not provide direct video file URLs — you'll need self-hosted or direct-URL video sources.
+
+### Clone Mode vs Move Mode
+When using the vanilla `createPip({ mode: 'clone' })` API, be aware of `cloneNode(true)` semantics:
+- **Event listeners** attached via `addEventListener` are **not** cloned — only inline handlers (`onclick="..."`) are copied.
+- **Inline event handlers** (`onclick`, `onmouseover`) **are** cloned and execute in the PiP window's context. If your content includes user-generated or untrusted HTML with inline handlers, prefer `mode: 'move'` instead to avoid script-injection risks.
+- **Form state** (typed text, selected options) is **not** preserved in the clone — only the initial HTML attribute values are copied.
+- **`<script>` tags** are cloned but do **not** re-execute.
+
+> **React users:** `<PipWrapper>` always uses portal mode internally regardless of the `mode` prop. Clone mode is only available via the vanilla `createPip()` API.
 
 ## Browser Security & Iframe Restrictions
 

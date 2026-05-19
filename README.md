@@ -1,5 +1,9 @@
 # pip-it-up
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Shakya47/pip-it-up/main/docs/assets/pip-it-up-github-banner.gif" alt="pip-it-up-github-banner" width="100%" />
+</p>
+
 > **Status: Public Beta** — Core API is stable. Some advanced features are in progress. See the [roadmap](#roadmap) for what's coming.
 
 The ultimate toolkit for the **Document Picture-in-Picture API**. 

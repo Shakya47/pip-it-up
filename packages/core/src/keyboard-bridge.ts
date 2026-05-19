@@ -1,5 +1,10 @@
 export const startKeyboardBridge = (pipWindow: Window, openerWindow: Window = window) => {
   const handleKey = (e: KeyboardEvent) => {
+    // Security: only forward real user-initiated keystrokes.
+    // Synthetic events created via dispatchEvent() have isTrusted === false
+    // and are ignored to prevent spoofed keystroke escalation from PiP-side scripts.
+    if (!e.isTrusted) return;
+
     const init: KeyboardEventInit = {
       key: e.key,
       code: e.code,
