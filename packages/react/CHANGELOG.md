@@ -1,5 +1,13 @@
 # @pip-it-up/react
 
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies [99c4cf2]
+- Updated dependencies [99c4cf2]
+  - @pip-it-up/core@0.1.8
+
 ## 0.1.7
 
 ### Patch Changes
