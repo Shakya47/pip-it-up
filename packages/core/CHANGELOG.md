@@ -1,5 +1,22 @@
 # @pip-it-up/core
 
+## 0.1.8
+
+### Patch Changes
+
+- 99c4cf2: Defensive coding hardening — six improvements for resilience against misuse, third-party interference, and future refactors. No behavioral changes for correct callers.
+  - **`pipBodyStyles` / `fallbackUrl` JSDoc**: Documented as trusted-input-only fields to surface CSS/URL injection risks to consumers.
+  - **Clone mode documentation**: Added JSDoc on `applyCloneMode` and README entry documenting `cloneNode(true)` semantics (inline handlers ARE cloned, event listeners are NOT, form state is NOT preserved).
+  - **SSR audit**: Verified all `window` references in helper files are inside function bodies — no module-scope access that would crash in SSR environments.
+  - **Cross-document `instanceof` comment**: Documented the cross-realm constructor trap in `focus-scroll.ts` with guidance for future refactors.
+  - **Disposer error isolation**: Wrapped each `dispose()` call in `try/catch` so one failing disposer doesn't prevent the rest from running — prevents resource leaks from faulty cleanup.
+  - **Close-polling documentation**: Added inline comments explaining the `setInterval` close-polling re-entrancy safety.
+
+- 99c4cf2: Security hardening: three fixes for identified vulnerabilities.
+  - **fallbackUrl validation**: `fallback: 'new-tab'` now validates URLs — only `http:` and `https:` protocols are allowed. `javascript:`, `data:`, and other dangerous schemes are rejected with a `console.warn`. All new-tab windows are opened with `noopener,noreferrer` to prevent reverse tabnabbing.
+  - **Registry collision warning**: `registerPip()` now emits a `console.warn` when a different instance is registered under an existing ID, surfacing accidental collisions or third-party hijacking. Re-registering the same instance reference (e.g., during React Strict Mode remounts) does not trigger the warning.
+  - **Keyboard bridge isTrusted filter**: The keyboard event bridge now ignores synthetic `dispatchEvent()` calls in the PiP window (`e.isTrusted === false`), preventing spoofed keystroke escalation to the opener window.
+
 ## 0.1.7
 
 ### Patch Changes
