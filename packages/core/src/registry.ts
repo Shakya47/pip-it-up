@@ -4,6 +4,13 @@ const registry = new Map<string, PipInstance>();
 const listeners = new Map<string, Set<() => void>>();
 
 export const registerPip = (id: string, instance: PipInstance) => {
+  const existing = registry.get(id);
+  if (existing && existing !== instance) {
+    console.warn(
+      `[pip-it-up] Overwriting existing registration for id "${id}". ` +
+      `Multiple PipWrapper instances with the same id may cause unexpected behavior.`
+    );
+  }
   registry.set(id, instance);
   notifyListeners(id);
 };

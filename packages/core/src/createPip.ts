@@ -30,7 +30,13 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
   const cleanup = () => {
     while (disposers.length > 0) {
       const dispose = disposers.pop();
-      if (dispose) dispose();
+      if (dispose) {
+        try {
+          dispose();
+        } catch (err) {
+          console.error('[pip-it-up] disposer failed:', err);
+        }
+      }
     }
   };
 
@@ -118,6 +124,15 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
         pipWindow.removeEventListener('unload', onPipClose);
       });
 
+      // Close-polling fallback: some browsers don't reliably fire `pagehide`
+      // or `unload` when the PiP window is closed by the user (e.g., via the
+      // OS window chrome). This interval detects `pipWindow.closed` and calls
+      // `close()` to trigger cleanup.
+      //
+      // Re-entrancy safety: `close()` has an early `if (!state.isOpen) return;`
+      // guard, so the poll triggering `close()` after it has already been called
+      // (via pagehide/unload) is a harmless no-op. The interval itself is
+      // cleared inside `cleanup()` via the disposer below.
       const closePollInterval = setInterval(() => {
         if (pipWindow.closed) {
           close();

@@ -14,7 +14,24 @@ export const executeFallback = (
   switch (fallback) {
     case 'new-tab':
       if (options.fallbackUrl) {
-        window.open(options.fallbackUrl, '_blank');
+        let parsed: URL;
+        try {
+          parsed = new URL(options.fallbackUrl, window.location.origin);
+        } catch {
+          console.warn(
+            `[pip-it-up] Invalid fallbackUrl: "${options.fallbackUrl}". URL could not be parsed.`
+          );
+          return;
+        }
+
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          console.warn(
+            `[pip-it-up] Blocked fallbackUrl with disallowed protocol "${parsed.protocol}". Only http: and https: URLs are allowed.`
+          );
+          return;
+        }
+
+        window.open(options.fallbackUrl, '_blank', 'noopener,noreferrer');
       } else {
         console.warn('pip-it-up: fallback="new-tab" requires fallbackUrl option');
       }
