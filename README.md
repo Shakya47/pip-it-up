@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/Shakya47/pip-it-up/main/docs/assets/pip-it-up-github-banner.gif" alt="pip-it-up-github-banner" width="100%" />
 </p>
 
-> **Status: Public Beta** — Core API is stable. Some advanced features are in progress. See the [roadmap](#roadmap) for what's coming.
+> **Status: Active Beta** — The API is in active development and subject to change before v1.0. See the [roadmap](#roadmap) for upcoming features.
 
 The ultimate toolkit for the **Document Picture-in-Picture API**. 
 
@@ -46,7 +46,7 @@ function App() {
 
 ## Packages
 
-- [`@pip-it-up/core`](./packages/core/README.md) - The vanilla JavaScript engine for the **Document Picture-in-Picture API**.
+- [`@pip-it-up/core`](./packages/core/README.md) - The vanilla JavaScript library for the **Document Picture-in-Picture API**.
 - [`@pip-it-up/react`](./packages/react/README.md) - React components, hooks, and context for managing **Picture-in-Picture** state.
 
 ## Documentation

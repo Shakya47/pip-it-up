@@ -10,7 +10,6 @@ const meta = {
   },
   tags: ['autodocs'],
   argTypes: {
-    mode: { control: 'select', options: ['move', 'portal'] },
     fallback: { control: 'select', options: ['new-tab', 'none'] },
     fallbackUrl: { control: 'text' },
     copyStyles: { control: 'select', options: ['once', 'sync'] },
@@ -28,7 +27,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    mode: 'move',
     children: (
       <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8 }}>
         <h3>PiP Content</h3>
@@ -52,7 +50,6 @@ export const Default: Story = {
 
 export const Controlled: Story = {
   args: {
-    mode: 'move',
     open: false,
     children: (
       <div style={{ padding: 20, border: '1px solid #ccc' }}>

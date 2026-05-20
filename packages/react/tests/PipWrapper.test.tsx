@@ -47,7 +47,7 @@ describe('PipWrapper', () => {
     const { result } = renderHook(() => usePip());
 
     render(
-      <PipWrapper id="portal-test-id" open={true} mode="portal" onOpenChange={() => { }}>
+      <PipWrapper id="portal-test-id" open={true} onOpenChange={() => { }}>
         <div data-testid="portal-child">Portal Content</div>
       </PipWrapper>
     );
@@ -67,7 +67,7 @@ describe('PipWrapper', () => {
 
   it('preserves children state when moving to pip', async () => {
     render(
-      <PipWrapper id="move-test-id" open={true} mode="move">
+      <PipWrapper id="move-test-id" open={true}>
         <input data-testid="move-input" defaultValue="hello" />
       </PipWrapper>
     );
@@ -90,7 +90,7 @@ describe('PipWrapper', () => {
     HTMLElement.prototype.getBoundingClientRect = () => ({ width: 400, height: 300 } as any);
 
     const { rerender } = render(
-      <PipWrapper id="placeholder-test" open={true} mode="move" placeholder={<div data-testid="custom-placeholder">Custom</div>}>
+      <PipWrapper id="placeholder-test" open={true} placeholder={<div data-testid="custom-placeholder">Custom</div>}>
         <div data-testid="move-child">Content</div>
       </PipWrapper>
     );
@@ -114,7 +114,7 @@ describe('PipWrapper', () => {
     });
 
     rerender(
-      <PipWrapper id="placeholder-test" open={false} mode="move" placeholder={<div data-testid="custom-placeholder">Custom</div>}>
+      <PipWrapper id="placeholder-test" open={false} placeholder={<div data-testid="custom-placeholder">Custom</div>}>
         <div data-testid="move-child">Content</div>
       </PipWrapper>
     );

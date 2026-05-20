@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/Shakya47/pip-it-up/main/docs/assets/pip-it-up-github-banner.gif" alt="pip-it-up-github-banner" width="100%" />
 </p>
 
-The framework-agnostic JavaScript engine for the **Document Picture-in-Picture API**.
+The framework-agnostic JavaScript library for the **Document Picture-in-Picture API**.
 
 `@pip-it-up/core` provides a robust, framework-agnostic way to manage the lifecycle of **Picture-in-Picture** windows, including style synchronization, element positioning, and keyboard event bridging.
 
