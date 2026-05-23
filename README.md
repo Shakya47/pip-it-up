@@ -58,6 +58,7 @@ See our recipes for advanced usage:
 - [Next.js SSR](./docs/recipes/nextjs.md)
 - [Fallbacks](./docs/recipes/fallbacks.md)
 - [Keyboard Shortcuts](./docs/recipes/keyboard-shortcuts.md)
+- [Chrome Extension](./docs/recipes/chrome-extension.md)
 
 ## Browser Support
 
