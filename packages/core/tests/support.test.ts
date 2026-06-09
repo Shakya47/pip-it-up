@@ -42,8 +42,7 @@ describe('support', () => {
     const desc = Object.getOwnPropertyDescriptor(document.constructor.prototype, 'pictureInPictureEnabled') ||
                  Object.getOwnPropertyDescriptor(document, 'pictureInPictureEnabled');
     if (desc) {
-      // @ts-ignore
-      delete document.constructor.prototype.pictureInPictureEnabled;
+      delete (document.constructor.prototype as any).pictureInPictureEnabled;
     }
     try {
       Object.defineProperty(document, 'pictureInPictureEnabled', {
@@ -53,8 +52,7 @@ describe('support', () => {
       });
       expect(isVideoPipSupported()).toBe(true);
 
-      // @ts-ignore
-      delete document.pictureInPictureEnabled;
+      delete (document as any).pictureInPictureEnabled;
       expect(isVideoPipSupported()).toBe(false);
     } finally {
       if (desc) {
@@ -106,8 +104,7 @@ describe('support', () => {
       if (desc) {
         Object.defineProperty(document, 'pictureInPictureElement', desc);
       } else {
-        // @ts-ignore
-        delete document.pictureInPictureElement;
+        delete (document as any).pictureInPictureElement;
       }
     }
   });
@@ -166,8 +163,7 @@ describe('support', () => {
         if (desc) {
           Object.defineProperty(document, 'pictureInPictureElement', desc);
         } else {
-          // @ts-ignore
-          delete document.pictureInPictureElement;
+          delete (document as any).pictureInPictureElement;
         }
       }
     });
