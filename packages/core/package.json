@@ -1,6 +1,6 @@
 {
   "name": "@pip-it-up/core",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Vanilla JS engine for the Document Picture-in-Picture API with automatic video PiP fallback — move, clone, or portal any DOM element into a floating PiP window (public beta)",
   "keywords": [
     "picture-in-picture",
