@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { IframeGuard } from './components/IframeGuard'
 import BasicDemo from './demos/BasicDemo'
 import MonacoDemo from './demos/MonacoDemo'
@@ -22,11 +22,31 @@ interface DemoCardProps {
 }
 
 function DemoCard({ id, title, description, children }: DemoCardProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}${window.location.pathname}#${id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+    // Update hash in address bar
+    history.pushState(null, '', `#${id}`);
+  };
+
   return (
-    <section id={id} className="border rounded-xl p-6 flex flex-col gap-4 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 transition-colors scroll-mt-6">
+    <section id={id} className="group relative border rounded-xl p-6 flex flex-col gap-4 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 transition-colors scroll-mt-6">
       <div className="flex flex-col items-center text-center">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-teal-500 to-indigo-600 bg-clip-text text-transparent">
-          {title}
+        <h2 className="text-2xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-indigo-600 bg-clip-text text-transparent">
+          <span>{title}</span>
+          <button
+            onClick={handleCopyLink}
+            title="Copy link to this demo"
+            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-gray-400 hover:text-teal-500 text-lg cursor-pointer flex items-center justify-center select-none"
+            style={{ width: '28px', height: '28px' }}
+          >
+            {copied ? '✅' : '🔗'}
+          </button>
         </h2>
         <p className="text-gray-500 dark:text-gray-400 max-w-lg mt-1 text-sm md:text-base">
           {description}
@@ -59,8 +79,31 @@ function App() {
     handleHashChange();
 
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            history.replaceState(null, '', `#${id}`);
+          }
+        });
+      },
+      {
+        rootMargin: '-20% 0px -60% 0px',
+        threshold: 0.1,
+      }
+    );
+
+    const sections = document.querySelectorAll('section[id]');
+    sections.forEach((section) => observer.observe(section));
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      observer.disconnect();
+    };
   }, []);
+
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-8 md:px-8 md:py-12 space-y-12 md:space-y-16">
@@ -80,114 +123,114 @@ function App() {
             rel="noopener noreferrer"
             className="hover:opacity-85 transition-opacity"
           >
-            <img 
-              src="https://codesandbox.io/static/img/play-codesandbox.svg" 
-              alt="Edit in CodeSandbox" 
+            <img
+              src="https://codesandbox.io/static/img/play-codesandbox.svg"
+              alt="Edit in CodeSandbox"
               className="h-10"
             />
           </a>
         </div>
       </header>
 
-      <DemoCard 
+      <DemoCard
         id="basic-demo"
-        title="1. TipTap Editor" 
+        title="1. TipTap Editor"
         description="Portals preserve React state, but complex editors need a re-mount on window change."
       >
         <BasicDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="monaco-demo"
-        title="2. Monaco Editor" 
+        title="2. Monaco Editor"
         description="Uses controlled value and explicit layout calls to persist code editor state across windows."
       >
         <MonacoDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="tailwind-demo"
-        title="3. Tailwind Styling" 
+        title="3. Tailwind Styling"
         description="Verifies automatic synchronization of Tailwind classes and global style changes to the floating window."
       >
         <TailwindDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="decoupled-demo"
-        title="4. Decoupled Trigger" 
+        title="4. Decoupled Trigger"
         description="A remote, standalone toggle button controlling a distant content wrapper via a unique ID link."
       >
         <DecoupledDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="controlled-demo"
-        title="5. Controlled State" 
+        title="5. Controlled State"
         description="Drives the open/closed visibility status of the Picture-in-Picture window using parent React state."
       >
         <ControlledDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="portal-demo"
-        title="6. Shared React Tree" 
+        title="6. Shared React Tree"
         description="Demonstrates that the portal content and the opener window share the exact same React context, hooks, and state."
       >
         <PortalDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="fixed-size-demo"
-        title="7. Fixed Component Size" 
+        title="7. Fixed Component Size"
         description="Enforces strict component layout dimensions inside the Picture-in-Picture window."
       >
         <FixedSizeDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="keyboard-shortcut-demo"
-        title="8. Keyboard Event Forwarding" 
+        title="8. Keyboard Event Forwarding"
         description="Forwards keyboard shortcuts (like Cmd+S / Ctrl+S) from the PiP window back to the main document context."
       >
         <KeyboardShortcutDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="video-demo"
-        title="9. Video Player Continuity" 
+        title="9. Video Player Continuity"
         description="Start playback. Open Picture-in-Picture. The video moves to the PiP window and continues playing seamlessly."
       >
         <VideoDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="audio-demo"
-        title="10. Audio Stream Continuity" 
+        title="10. Audio Stream Continuity"
         description="Start playback. Toggle Picture-in-Picture. The audio stream moves to the PiP window and continues playing seamlessly."
       >
         <AudioDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="scribble-demo"
-        title="11. Scribble Canvas Board" 
+        title="11. Scribble Canvas Board"
         description="Interact and draw. Opening/closing PiP preserves your canvas drawing buffer, strokes, and undo/redo history perfectly."
       >
         <ScribbleDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="map-demo"
-        title="12. Interactive Map" 
+        title="12. Interactive Map"
         description="Interact with a live Leaflet map. Panning, zooming, and dragging the marker are preserved seamlessly between windows."
       >
         <MapDemo />
       </DemoCard>
 
-      <DemoCard 
+      <DemoCard
         id="build-progress-demo"
-        title="13. Build Progress Monitor" 
+        title="13. Build Progress Monitor"
         description="Start a build. Move it into PiP to monitor your tasks in a small floating corner window while you browse other tabs."
       >
         <BuildProgressDemo />
