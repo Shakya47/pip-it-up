@@ -144,4 +144,28 @@ describe('PipTrigger', () => {
       expect(instance!.getPipWindow()).not.toBeNull();
     });
   });
+
+  it('renders correct ARIA attributes reflecting isOpen state', async () => {
+    const user = userEvent.setup();
+    render(
+      <PipWrapper id="aria-test">
+        <PipTrigger hideInPip={false} aria-label="Custom Toggle Label" />
+      </PipWrapper>
+    );
+
+    const trigger = await screen.findByRole('button', { name: 'Custom Toggle Label' });
+    expect(trigger).toHaveAttribute('aria-pressed', 'false');
+    expect(trigger).toHaveAttribute('aria-label', 'Custom Toggle Label');
+
+    await user.click(trigger);
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      const pipWin = (window as any).documentPictureInPicture.window;
+      expect(pipWin).not.toBeNull();
+      const { getByRole } = within(pipWin.document.body);
+      const activeTrigger = getByRole('button', { name: 'Custom Toggle Label' });
+      expect(activeTrigger).toHaveAttribute('aria-pressed', 'true');
+    });
+  });
 });

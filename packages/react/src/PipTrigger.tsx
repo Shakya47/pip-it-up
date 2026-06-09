@@ -95,8 +95,7 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) onClick(e);
-    const target = instance ?? context?.instance;
-    target?.toggle();
+    instance?.toggle();
   };
 
   const isOpen = state.isOpen;
@@ -115,6 +114,7 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
     <Comp
       ref={ref}
       onClick={handleClick}
+      aria-pressed={isOpen}
       {...(asChild ? {} : { type: 'button' })}
       {...rest}
     >

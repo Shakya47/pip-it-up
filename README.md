@@ -69,6 +69,9 @@ See our recipes for advanced usage:
 | Safari | Unsupported (uses Fallbacks) |
 | Firefox | Unsupported (uses Fallbacks) |
 
+> [!NOTE]
+> **Video Auto-Fallback**: On Safari and Firefox (which do not support Document PiP), if the wrapped content is a single `<video>` element, `pip-it-up` automatically falls back to use the classic **Video Picture-in-Picture API** (`video.requestPictureInPicture()`) instead. Chrome and Edge will use the fully interactive **Document Picture-in-Picture API** to float the entire container.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).

@@ -15,14 +15,14 @@ export const snapshotScrollFocus = (rootEl: HTMLElement, opts: SnapshotOptions =
   if (restoreFocus) {
     activeElement = openerDoc.activeElement as HTMLElement | null;
 
-    // Note: These checks use the opener window's HTMLInputElement / HTMLTextAreaElement constructors.
-    // This is safe here because snapshotScrollFocus is always called before the element is moved.
-    // If called after moving, a tag-name check would be required due to cross-document constructor mismatches.
-    if (activeElement && (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)) {
+    // Note: Cross-document constructor mismatches can happen if HTMLInputElement / HTMLTextAreaElement constructors
+    // are checked using instanceof across different window contexts. Using tagName is completely safe in all environments.
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
       try {
-        selectionStart = activeElement.selectionStart;
-        selectionEnd = activeElement.selectionEnd;
-        selectionDir = activeElement.selectionDirection;
+        const input = activeElement as HTMLInputElement | HTMLTextAreaElement;
+        selectionStart = input.selectionStart;
+        selectionEnd = input.selectionEnd;
+        selectionDir = input.selectionDirection;
       } catch {
         // noop: some input types (e.g. number, date) throw on selectionStart access
       }
@@ -38,8 +38,9 @@ export const snapshotScrollFocus = (rootEl: HTMLElement, opts: SnapshotOptions =
     }
     for (let i = 0; i < allElements.length; i++) {
       const node = allElements[i];
-      if (node instanceof HTMLElement && (node.scrollTop > 0 || node.scrollLeft > 0)) {
-        scrollMap.set(node, { scrollTop: node.scrollTop, scrollLeft: node.scrollLeft });
+      if (node.nodeType === 1 && ((node as HTMLElement).scrollTop > 0 || (node as HTMLElement).scrollLeft > 0)) {
+        const htmlNode = node as HTMLElement;
+        scrollMap.set(htmlNode, { scrollTop: htmlNode.scrollTop, scrollLeft: htmlNode.scrollLeft });
       }
     }
   }
@@ -59,8 +60,8 @@ export const snapshotScrollFocus = (rootEl: HTMLElement, opts: SnapshotOptions =
         const allElements = rootEl.querySelectorAll('*');
         for (let i = 0; i < allElements.length; i++) {
           const node = allElements[i];
-          if (node instanceof HTMLElement) {
-            restoreState(node);
+          if (node.nodeType === 1) {
+            restoreState(node as HTMLElement);
           }
         }
       }

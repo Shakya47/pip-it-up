@@ -13,6 +13,7 @@ export function usePip<T extends HTMLElement = HTMLDivElement>(options: PipOptio
   const instanceRef = useRef<PipInstance | null>(null);
 
   if (!instanceRef.current) {
+    // `id` is used for registry only, not passed to createPip factory options.
     const { id: _id, ...factoryOptions } = options;
     instanceRef.current = createPip(factoryOptions);
   }
@@ -26,6 +27,36 @@ export function usePip<T extends HTMLElement = HTMLDivElement>(options: PipOptio
     }
   }, [options.id, instance]);
 
+  // Sync option changes to the core instance.
+  // MAINTENANCE: If new options are added to PipOptions, add them here too.
+  useEffect(() => {
+    instance.updateOptions(options);
+  }, [
+    instance,
+    options.width,
+    options.height,
+    options.preferInitialWindowPlacement,
+    options.disallowReturnToOpener,
+    options.fixedSize,
+    options.copyStyles,
+    options.fallback,
+    options.fallbackUrl,
+    options.forceFallback,
+    options.disableVideoPip,
+    options.reserveSpace,
+    options.centerInPip,
+    options.pipBodyStyles,
+    options.forwardKeyboardEvents,
+    options.forwardPointerEvents,
+    options.restoreScroll,
+    options.restoreFocus,
+    options.onBeforeOpen,
+    options.onOpen,
+    options.onPipWindowReady,
+    options.onClose,
+    options.onError
+  ]);
+
   useEffect(() => {
     return () => {
       instance.destroy();
@@ -34,14 +65,11 @@ export function usePip<T extends HTMLElement = HTMLDivElement>(options: PipOptio
   }, [instance]);
 
   useLayoutEffect(() => {
-    if (typeof instance.setDefaultElements === 'function') {
-      instance.setDefaultElements({
-        contentEl: contentRef.current || undefined,
-        originEl: originRef.current || undefined,
-      });
-    }
-  // Ref objects are stable (same identity across renders), so deps are effectively [instance].
-  }, [instance]);
+    instance.setDefaultElements({
+      contentEl: contentRef.current || undefined,
+      originEl: originRef.current || undefined,
+    });
+  }, [instance, contentRef.current, originRef.current]);
 
   const state = useSyncExternalStore(
     instance.subscribe,

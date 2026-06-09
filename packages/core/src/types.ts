@@ -1,6 +1,6 @@
 import './global.d.ts';
 
-export type FallbackMode = "new-tab" | "none" | ((ctx: { contentEl?: HTMLElement; originEl?: HTMLElement; resolvedOptions: PipOptions }) => void);
+export type FallbackMode = "new-tab" | "none" | ((ctx: { contentEl?: HTMLElement; originEl?: HTMLElement; resolvedOptions: PipOptions }) => (() => void) | void);
 export type DomMode = "move" | "clone" | "portal";
 export type CopyStylesMode = "once" | "sync";
 
@@ -24,6 +24,7 @@ export interface PipOptions {
    */
   fallbackUrl?: string;
   forceFallback?: boolean;
+  disableVideoPip?: boolean;
   reserveSpace?: boolean;
   centerInPip?: boolean;
   /**
@@ -39,6 +40,7 @@ export interface PipOptions {
    */
   pipBodyStyles?: Partial<CSSStyleDeclaration> | false;
   forwardKeyboardEvents?: boolean;
+  forwardPointerEvents?: boolean;
   restoreScroll?: boolean;
   restoreFocus?: boolean;
   onBeforeOpen?: () => boolean | Promise<boolean>;
@@ -64,5 +66,6 @@ export interface PipInstance {
   subscribe: (fn: () => void) => () => void;
   getState: () => PipState;
   setDefaultElements: (elements: { contentEl?: HTMLElement; originEl?: HTMLElement }) => void;
+  updateOptions: (options: PipOptions) => void;
   destroy: () => void;
 }

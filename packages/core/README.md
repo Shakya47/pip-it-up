@@ -67,6 +67,16 @@ Creates a new **Picture-in-Picture** instance.
 - `reserveSpace`: Preserve the layout in the main window when `mode: 'move'` (default: `true`).
 - `centerInPip`: Centering the content inside the window via flexbox (default: `false`).
 - `pipBodyStyles`: Custom styles for the PiP window's `<body>`.
+- `disableVideoPip`: Boolean to disable automatic video-only PiP fallback on unsupported browsers (default: `false`).
+
+##### Support and Video PiP Utilities
+The library exports several helper functions for feature detection and classic Video PiP control:
+- `isSupported()`: Returns `true` if the browser supports the Document Picture-in-Picture API.
+- `isVideoPipSupported()`: Returns `true` if the browser supports the classic Video Picture-in-Picture API.
+- `isWebkitPipSupported()`: Returns `true` if the browser supports WebKit-specific Picture-in-Picture (older Safari).
+- `isInVideoPip()`: Returns `true` if any `<video>` element on the page is currently in Picture-in-Picture.
+- `enterVideoPip(video: HTMLVideoElement)`: Request classic Video PiP on a video element, automatically setting `playsinline` and using WebKit presentation/fullscreen fallbacks if standard API is missing.
+- `exitVideoPip(video: HTMLVideoElement)`: Exits classic Video PiP mode on the video element.
 
 ##### Advanced Options
 - `id`: A unique string identifier. If provided, registers the instance globally so it can be retrieved via `getPip(id)`.
@@ -162,6 +172,9 @@ Cross-origin `<iframe>` embeds (YouTube, Vimeo, Google Maps, Spotify, etc.) will
 This is a **browser platform limitation** of the Document Picture-in-Picture API, not a bug in `pip-it-up`.
 
 *   **Workaround**: For video content, use a native `<video>` element with a direct source URL instead of an iframe embed. Note that services like YouTube do not provide direct video file URLs — you'll need self-hosted or direct-URL video sources.
+
+### Seamless State Preservation (Video, Audio, Canvas, WebRTC)
+When using `mode: 'move'` (default) or `mode: 'portal'`, `@pip-it-up` moves the actual DOM element without unmounting it. This means stateful DOM content like `<video>` (keeps playing from the same timestamp), `<audio>`, `<canvas>` (keeps its drawing buffer), and WebRTC `MediaStream` (remains active without reconnecting) will retain their state and identity perfectly across the window boundary.
 
 ### Clone Mode vs Move Mode
 When using the vanilla `createPip({ mode: 'clone' })` API, be aware of `cloneNode(true)` semantics:

@@ -54,6 +54,19 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
     }
   };
 
+  const syncStyleAncestor = (target: Node) => {
+    let current: Node | null = target;
+    while (current && current.nodeName !== 'STYLE') {
+      current = current.parentNode;
+    }
+    if (current) {
+      const clone = nodeMap.get(current);
+      if (clone) {
+        scheduleTextUpdate(current, clone);
+      }
+    }
+  };
+
   const headObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'childList') {
@@ -74,17 +87,11 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
             nodeMap.delete(node);
           }
         }
+
+        // Sync text node child updates within observed STYLE elements (e.g. CSS-in-JS rule appends)
+        syncStyleAncestor(mutation.target);
       } else if (mutation.type === 'characterData') {
-        let current: Node | null = mutation.target;
-        while (current && current.nodeName !== 'STYLE') {
-          current = current.parentNode;
-        }
-        if (current) {
-          const clone = nodeMap.get(current);
-          if (clone) {
-            scheduleTextUpdate(current, clone);
-          }
-        }
+        syncStyleAncestor(mutation.target);
       }
     }
   });

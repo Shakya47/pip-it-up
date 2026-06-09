@@ -47,5 +47,3 @@ export const applyCloneMode = (pipWindow: Window, contentEl: HTMLElement) => {
   pipWindow.document.body.appendChild(clone);
   return () => { clone.parentNode?.removeChild(clone); };
 };
-
-
