@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { IframeGuard } from './components/IframeGuard'
+import { ViewSourceLink } from './components/ViewSourceLink'
 import BasicDemo from './demos/BasicDemo'
 import MonacoDemo from './demos/MonacoDemo'
 import TailwindDemo from './demos/TailwindDemo'
@@ -18,10 +19,11 @@ interface DemoCardProps {
   id: string;
   title: string;
   description: string;
+  file: string;
   children: React.ReactNode;
 }
 
-function DemoCard({ id, title, description, children }: DemoCardProps) {
+function DemoCard({ id, title, description, file, children }: DemoCardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyLink = () => {
@@ -36,6 +38,9 @@ function DemoCard({ id, title, description, children }: DemoCardProps) {
 
   return (
     <section id={id} className="group relative border rounded-xl p-6 flex flex-col gap-4 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 transition-colors scroll-mt-6">
+      <div className="absolute top-4 right-4 z-10">
+        <ViewSourceLink file={file} />
+      </div>
       <div className="flex flex-col items-center text-center">
         <h2 className="text-2xl font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-indigo-600 bg-clip-text text-transparent">
           <span>{title}</span>
@@ -136,6 +141,7 @@ function App() {
         id="basic-demo"
         title="1. TipTap Editor"
         description="Portals preserve React state, but complex editors need a re-mount on window change."
+        file="examples/playground/src/demos/BasicDemo.tsx"
       >
         <BasicDemo />
       </DemoCard>
@@ -144,6 +150,7 @@ function App() {
         id="monaco-demo"
         title="2. Monaco Editor"
         description="Uses controlled value and explicit layout calls to persist code editor state across windows."
+        file="examples/playground/src/demos/MonacoDemo.tsx"
       >
         <MonacoDemo />
       </DemoCard>
@@ -152,6 +159,7 @@ function App() {
         id="tailwind-demo"
         title="3. Tailwind Styling"
         description="Verifies automatic synchronization of Tailwind classes and global style changes to the floating window."
+        file="examples/playground/src/demos/TailwindDemo.tsx"
       >
         <TailwindDemo />
       </DemoCard>
@@ -160,6 +168,7 @@ function App() {
         id="decoupled-demo"
         title="4. Decoupled Trigger"
         description="A remote, standalone toggle button controlling a distant content wrapper via a unique ID link."
+        file="examples/playground/src/demos/DecoupledDemo.tsx"
       >
         <DecoupledDemo />
       </DemoCard>
@@ -168,6 +177,7 @@ function App() {
         id="controlled-demo"
         title="5. Controlled State"
         description="Drives the open/closed visibility status of the Picture-in-Picture window using parent React state."
+        file="examples/playground/src/demos/ControlledDemo.tsx"
       >
         <ControlledDemo />
       </DemoCard>
@@ -176,6 +186,7 @@ function App() {
         id="portal-demo"
         title="6. Shared React Tree"
         description="Demonstrates that the portal content and the opener window share the exact same React context, hooks, and state."
+        file="examples/playground/src/demos/PortalDemo.tsx"
       >
         <PortalDemo />
       </DemoCard>
@@ -184,6 +195,7 @@ function App() {
         id="fixed-size-demo"
         title="7. Fixed Component Size"
         description="Enforces strict component layout dimensions inside the Picture-in-Picture window."
+        file="examples/playground/src/demos/FixedSizeDemo.tsx"
       >
         <FixedSizeDemo />
       </DemoCard>
@@ -192,6 +204,7 @@ function App() {
         id="keyboard-shortcut-demo"
         title="8. Keyboard Event Forwarding"
         description="Forwards keyboard shortcuts (like Cmd+S / Ctrl+S) from the PiP window back to the main document context."
+        file="examples/playground/src/demos/KeyboardShortcutDemo.tsx"
       >
         <KeyboardShortcutDemo />
       </DemoCard>
@@ -200,6 +213,7 @@ function App() {
         id="video-demo"
         title="9. Video Player Continuity"
         description="Start playback. Open Picture-in-Picture. The video moves to the PiP window and continues playing seamlessly."
+        file="examples/playground/src/demos/VideoDemo.tsx"
       >
         <VideoDemo />
       </DemoCard>
@@ -208,6 +222,7 @@ function App() {
         id="audio-demo"
         title="10. Audio Stream Continuity"
         description="Start playback. Toggle Picture-in-Picture. The audio stream moves to the PiP window and continues playing seamlessly."
+        file="examples/playground/src/demos/AudioDemo.tsx"
       >
         <AudioDemo />
       </DemoCard>
@@ -216,6 +231,7 @@ function App() {
         id="scribble-demo"
         title="11. Scribble Canvas Board"
         description="Interact and draw. Opening/closing PiP preserves your canvas drawing buffer, strokes, and undo/redo history perfectly."
+        file="examples/playground/src/demos/ScribbleDemo.tsx"
       >
         <ScribbleDemo />
       </DemoCard>
@@ -224,6 +240,7 @@ function App() {
         id="map-demo"
         title="12. Interactive Map"
         description="Interact with a live Leaflet map. Panning, zooming, and dragging the marker are preserved seamlessly between windows."
+        file="examples/playground/src/demos/MapDemo.tsx"
       >
         <MapDemo />
       </DemoCard>
@@ -232,6 +249,7 @@ function App() {
         id="build-progress-demo"
         title="13. Build Progress Monitor"
         description="Start a build. Move it into PiP to monitor your tasks in a small floating corner window while you browse other tabs."
+        file="examples/playground/src/demos/BuildProgressDemo.tsx"
       >
         <BuildProgressDemo />
       </DemoCard>
@@ -240,4 +258,3 @@ function App() {
 }
 
 export default App
-
