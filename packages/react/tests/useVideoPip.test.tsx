@@ -101,4 +101,32 @@ describe('useVideoPip', () => {
     });
     expect(result.current.isActive).toBe(false);
   });
+
+  it('syncs isActive state on WebKit custom events', () => {
+    const { result } = renderHook(() => useVideoPip(ref));
+    expect(result.current.isActive).toBe(false);
+
+    act(() => {
+      (videoElement as any).webkitPresentationMode = 'picture-in-picture';
+      videoElement.dispatchEvent(new Event('webkitpresentationmodechanged'));
+    });
+    expect(result.current.isActive).toBe(true);
+
+    act(() => {
+      (videoElement as any).webkitPresentationMode = 'inline';
+      videoElement.dispatchEvent(new Event('webkitpresentationmodechanged'));
+    });
+    expect(result.current.isActive).toBe(false);
+
+    act(() => {
+      videoElement.dispatchEvent(new Event('webkitbeginfullscreen'));
+    });
+    expect(result.current.isActive).toBe(true);
+
+    act(() => {
+      videoElement.dispatchEvent(new Event('webkitendfullscreen'));
+    });
+    expect(result.current.isActive).toBe(false);
+  });
 });
+

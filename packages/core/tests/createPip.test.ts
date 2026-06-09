@@ -233,4 +233,47 @@ describe('createPip', () => {
 
     errorSpy.mockRestore();
   });
+
+  it('should update options dynamically', async () => {
+    const onClose1 = vi.fn();
+    const onClose2 = vi.fn();
+    const pip = createPip({ onClose: onClose1 });
+    await pip.open();
+    
+    pip.updateOptions({ onClose: onClose2 });
+    
+    const win = pip.getPipWindow();
+    win?.dispatchEvent(new Event('pagehide'));
+    
+    expect(onClose1).not.toHaveBeenCalled();
+    expect(onClose2).toHaveBeenCalled();
+  });
+
+  it('should support setting default elements and checking video support when Pip is unsupported', () => {
+    const originalPiP = (window as any).documentPictureInPicture;
+    delete (window as any).documentPictureInPicture;
+    
+    const originalPiPEnabled = (document as any).pictureInPictureEnabled;
+    (document as any).pictureInPictureEnabled = true;
+
+    try {
+      const pip = createPip();
+      expect(pip.getState().isSupported).toBe(false);
+
+      const contentEl = document.createElement('div');
+      const video = document.createElement('video');
+      contentEl.appendChild(video);
+
+      pip.setDefaultElements({ contentEl });
+      expect(pip.getState().isSupported).toBe(true);
+    } finally {
+      (window as any).documentPictureInPicture = originalPiP;
+      if (originalPiPEnabled !== undefined) {
+        (document as any).pictureInPictureEnabled = originalPiPEnabled;
+      } else {
+        delete (document as any).pictureInPictureEnabled;
+      }
+    }
+  });
 });
+

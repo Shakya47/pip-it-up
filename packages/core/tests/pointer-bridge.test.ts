@@ -111,4 +111,85 @@ describe('pointer-bridge', () => {
 
     cleanup();
   });
+
+  it('dispatches synthesized MouseEvent to opener document for trusted mouse input', () => {
+    const mockDoc = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+
+    const pipWin: any = {
+      document: mockDoc,
+    };
+
+    const openerDoc = document.createElement('div');
+    const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+
+    const openerWin: any = {
+      document: openerDoc,
+    };
+
+    const cleanup = startPointerBridge(pipWin, openerWin);
+    expect(mockDoc.addEventListener).toHaveBeenCalledWith('mousedown', expect.any(Function), expect.any(Object));
+
+    const calls = mockDoc.addEventListener.mock.calls;
+    const mouseDownCall = calls.find((c: any) => c[0] === 'mousedown');
+    expect(mouseDownCall).toBeDefined();
+    const handler = mouseDownCall[1];
+
+    const eventToDispatch = {
+      type: 'mousedown',
+      screenX: 100,
+      screenY: 200,
+      clientX: 50,
+      clientY: 60,
+      isTrusted: true,
+    } as unknown as MouseEvent;
+
+    handler(eventToDispatch);
+
+    expect(dispatchSpy).toHaveBeenCalled();
+    const dispatchedEvent = dispatchSpy.mock.calls[0][0] as MouseEvent;
+    expect(dispatchedEvent.type).toBe('mousedown');
+    expect(dispatchedEvent.clientX).toBe(50);
+    expect(dispatchedEvent.clientY).toBe(60);
+
+    cleanup();
+  });
+
+  it('does NOT forward untrusted mouse events', () => {
+    const mockDoc = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+
+    const pipWin: any = {
+      document: mockDoc,
+    };
+
+    const openerDoc = document.createElement('div');
+    const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+
+    const openerWin: any = {
+      document: openerDoc,
+    };
+
+    const cleanup = startPointerBridge(pipWin, openerWin);
+
+    const calls = mockDoc.addEventListener.mock.calls;
+    const mouseDownCall = calls.find((c: any) => c[0] === 'mousedown');
+    const handler = mouseDownCall[1];
+
+    const eventToDispatch = {
+      type: 'mousedown',
+      isTrusted: false,
+    } as unknown as MouseEvent;
+
+    handler(eventToDispatch);
+
+    expect(dispatchSpy).not.toHaveBeenCalled();
+
+    cleanup();
+  });
 });
+

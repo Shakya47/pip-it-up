@@ -311,4 +311,46 @@ describe('PipWrapper', () => {
     document.body.removeChild(button);
     HTMLElement.prototype.focus = originalFocus;
   });
+
+  it('restores focus to container when document active element is body on close', async () => {
+    const originalFocus = HTMLElement.prototype.focus;
+    const focusSpy = vi.fn();
+    HTMLElement.prototype.focus = focusSpy;
+
+    const { rerender } = render(
+      <PipWrapper id="focus-restore-body-test" open={true}>
+        <div>
+          <button data-testid="pip-btn">Inside Button</button>
+        </div>
+      </PipWrapper>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+    
+    await waitFor(async () => {
+      const { getPip } = await import('@pip-it-up/core');
+      expect(getPip('focus-restore-body-test')).not.toBeNull();
+    });
+
+    focusSpy.mockClear();
+
+    if (document.activeElement && typeof (document.activeElement as any).blur === 'function') {
+      (document.activeElement as any).blur();
+    }
+
+    rerender(
+      <PipWrapper id="focus-restore-body-test" open={false}>
+        <div>
+          <button data-testid="pip-btn">Inside Button</button>
+        </div>
+      </PipWrapper>
+    );
+
+    await waitFor(() => {
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    HTMLElement.prototype.focus = originalFocus;
+  });
 });
+
