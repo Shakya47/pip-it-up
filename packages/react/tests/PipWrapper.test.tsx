@@ -43,8 +43,6 @@ describe('PipWrapper', () => {
   });
 
   it('renders portal children into pipWindow when mode is portal', async () => {
-    const { renderHook } = await import('@testing-library/react');
-    const { result } = renderHook(() => usePip());
 
     render(
       <PipWrapper id="portal-test-id" open={true} onOpenChange={() => { }}>
@@ -160,7 +158,6 @@ describe('PipWrapper', () => {
 
   it('calls setDefaultElements on mount with DOM refs (Polish 6)', async () => {
     const { getPip } = await import('@pip-it-up/core');
-    const { createPip } = await import('@pip-it-up/core');
 
     // Spy on setDefaultElements by wrapping the instance
 
@@ -182,5 +179,136 @@ describe('PipWrapper', () => {
 
     expect(instance!.isOpen()).toBe(true);
     expect(instance!.getPipWindow()).not.toBeNull();
+  });
+
+  it('correctly updates isInsidePip from context inside the portal', async () => {
+    let currentInsidePipValue = false;
+    const Child = () => {
+      const { isInsidePip } = usePipContext();
+      currentInsidePipValue = isInsidePip;
+      return <div data-testid="portal-child-node" />;
+    };
+
+    const { rerender } = render(
+      <PipWrapper id="inside-test" open={false}>
+        <Child />
+      </PipWrapper>
+    );
+
+    expect(currentInsidePipValue).toBe(false);
+
+    // Trigger open
+    rerender(
+      <PipWrapper id="inside-test" open={true}>
+        <Child />
+      </PipWrapper>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(async () => {
+      const { getPip } = await import('@pip-it-up/core');
+      const pip = getPip('inside-test');
+      expect(pip).not.toBeNull();
+
+      const pipDoc = pip!.getPipWindow()?.document;
+      const node = pipDoc?.body.querySelector('[data-testid="portal-child-node"]');
+      expect(node).toBeDefined();
+      
+      // Inside portal, it must be true!
+      expect(currentInsidePipValue).toBe(true);
+    });
+  });
+
+  it('renders aria-live region and restore button with aria-label when open', async () => {
+    const { container, rerender } = render(
+      <PipWrapper id="a11y-test" open={false}>
+        <div data-testid="content">Hello</div>
+      </PipWrapper>
+    );
+
+    const liveRegion = container.querySelector('[aria-live="polite"]');
+    expect(liveRegion).toBeInTheDocument();
+    expect(liveRegion?.textContent).toBe('');
+
+    rerender(
+      <PipWrapper id="a11y-test" open={true}>
+        <div data-testid="content">Hello</div>
+      </PipWrapper>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(async () => {
+      expect(liveRegion?.textContent).toBe('Content moved to Picture-in-Picture window');
+      const restoreBtn = screen.getByRole('button', { name: 'Restore content from Picture-in-Picture' });
+      expect(restoreBtn).toBeInTheDocument();
+    });
+
+    rerender(
+      <PipWrapper id="a11y-test" open={false}>
+        <div data-testid="content">Hello</div>
+      </PipWrapper>
+    );
+
+    await waitFor(() => {
+      expect(liveRegion?.textContent).toBe('Content restored to main window');
+    });
+  });
+
+  it('handles focus redirection on open and restore on close', async () => {
+    const button = document.createElement('button');
+    button.setAttribute('id', 'my-trigger');
+    document.body.appendChild(button);
+    button.focus();
+
+    const originalFocus = HTMLElement.prototype.focus;
+    const focusSpy = vi.fn();
+    HTMLElement.prototype.focus = focusSpy;
+
+    const { rerender } = render(
+      <PipWrapper id="focus-test" open={false}>
+        <div>
+          <button data-testid="pip-btn">Inside Button</button>
+        </div>
+      </PipWrapper>
+    );
+
+    focusSpy.mockClear();
+
+    rerender(
+      <PipWrapper id="focus-test" open={true}>
+        <div>
+          <button data-testid="pip-btn">Inside Button</button>
+        </div>
+      </PipWrapper>
+    );
+
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(async () => {
+      const { getPip } = await import('@pip-it-up/core');
+      const pip = getPip('focus-test');
+      expect(pip).not.toBeNull();
+
+      const pipWin = pip!.getPipWindow();
+      expect(pipWin).not.toBeNull();
+
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    focusSpy.mockClear();
+
+    rerender(
+      <PipWrapper id="focus-test" open={false}>
+        <div>
+          <button data-testid="pip-btn">Inside Button</button>
+        </div>
+      </PipWrapper>
+    );
+
+    await waitFor(() => {
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    document.body.removeChild(button);
+    HTMLElement.prototype.focus = originalFocus;
   });
 });

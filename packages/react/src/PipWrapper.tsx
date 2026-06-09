@@ -20,6 +20,21 @@ export interface PipWrapperProps extends Omit<PipOptions, 'mode'> {
 const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
 const getServerState = () => emptyServerState;
 
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), details, [tabindex]:not([tabindex="-1"])';
+
+/** Focus the first focusable descendant, or the container itself as a fallback. */
+const focusFirstOrContainer = (el: HTMLElement) => {
+  const firstFocusable = el.querySelector(FOCUSABLE_SELECTOR) as HTMLElement | null;
+  if (firstFocusable) {
+    firstFocusable.focus();
+  } else {
+    if (el.tabIndex === -1 || el.tabIndex === undefined) {
+      el.tabIndex = -1;
+    }
+    el.focus();
+  }
+};
+
 /**
  * A React wrapper for the Document Picture-in-Picture API.
  * Uses React Portals internally to migrate DOM nodes while keeping
@@ -69,6 +84,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     };
   }, []);
 
+
   const state = useSyncExternalStore(
     instance.subscribe,
     instance.getState,
@@ -76,13 +92,41 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   );
 
   useLayoutEffect(() => {
-    if (typeof instance.setDefaultElements === 'function') {
-      instance.setDefaultElements({
-        contentEl: contentRef.current || undefined,
-        originEl: originRef.current || undefined,
-      });
-    }
-  }, [instance, state.isOpen]);
+    instance.setDefaultElements({
+      contentEl: contentRef.current || undefined,
+      originEl: originRef.current || undefined,
+    });
+  }, [instance, state.isOpen, contentRef.current, originRef.current]);
+
+  // Sync option changes to the core instance.
+  // MAINTENANCE: If new options are added to PipOptions, add them here too.
+  useEffect(() => {
+    instance.updateOptions({ ...coreOptions, mode: 'portal' });
+  }, [
+    instance,
+    coreOptions.width,
+    coreOptions.height,
+    coreOptions.preferInitialWindowPlacement,
+    coreOptions.disallowReturnToOpener,
+    coreOptions.fixedSize,
+    coreOptions.copyStyles,
+    coreOptions.fallback,
+    coreOptions.fallbackUrl,
+    coreOptions.forceFallback,
+    coreOptions.disableVideoPip,
+    coreOptions.reserveSpace,
+    coreOptions.centerInPip,
+    coreOptions.pipBodyStyles,
+    coreOptions.forwardKeyboardEvents,
+    coreOptions.forwardPointerEvents,
+    coreOptions.restoreScroll,
+    coreOptions.restoreFocus,
+    coreOptions.onBeforeOpen,
+    coreOptions.onOpen,
+    coreOptions.onPipWindowReady,
+    coreOptions.onClose,
+    coreOptions.onError
+  ]);
 
   const isControlled = controlledOpen !== undefined;
   const prevOpenRef = useRef(state.isOpen);
@@ -138,10 +182,45 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     }
   }, [defaultOpen, isControlled, instance]);
 
+  const [liveMessage, setLiveMessage] = React.useState("");
+  const prevIsOpenForMessageRef = useRef(state.isOpen);
+
+  useEffect(() => {
+    if (state.isOpen) {
+      setLiveMessage("Content moved to Picture-in-Picture window");
+    } else if (prevIsOpenForMessageRef.current) {
+      setLiveMessage("Content restored to main window");
+    }
+    prevIsOpenForMessageRef.current = state.isOpen;
+  }, [state.isOpen]);
+
+  useEffect(() => {
+    if (state.isOpen && state.pipWindow && contentRef.current) {
+      if (typeof state.pipWindow.focus === 'function') {
+        state.pipWindow.focus();
+      }
+      focusFirstOrContainer(contentRef.current);
+    }
+  }, [state.isOpen, state.pipWindow]);
+
+  useEffect(() => {
+    if (prevIsOpenRef.current && !state.isOpen) {
+      const timer = setTimeout(() => {
+        const activeEl = document.activeElement;
+        if (!activeEl || activeEl === document.body) {
+          if (contentRef.current) {
+            focusFirstOrContainer(contentRef.current);
+          }
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [state.isOpen]);
+
   const defaultPlaceholder = (
     <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', border: '1px dashed color-mix(in srgb, currentColor 30%, #ccc)', borderRadius: 'inherit', width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
       <div style={{ marginBottom: '4px', fontSize: '0.875rem', fontWeight: 500, opacity: 0.6, textAlign: 'center' }}>📺 In PiP</div>
-      <button onClick={() => instance.close()} style={{ fontSize: '0.75rem', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', border: '1px solid currentColor', background: 'transparent', opacity: 0.6 }}>Restore</button>
+      <button onClick={() => instance.close()} aria-label="Restore content from Picture-in-Picture" style={{ fontSize: '0.75rem', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', border: '1px solid currentColor', background: 'transparent', opacity: 0.6 }}>Restore</button>
     </div>
   );
 
@@ -204,6 +283,13 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
 
   return (
     <PipContext.Provider value={{ instance, state, isInsidePip: false }}>
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: '0' }}
+      >
+        {liveMessage}
+      </div>
       <OriginComponent ref={originRef} style={{ display: 'contents' }}>
         {state.isOpen && state.pipWindow ? (
           <>

@@ -7,6 +7,7 @@ export type { PipTriggerProps } from './PipTrigger';
 export { usePip } from './usePip';
 export { usePipContext } from './usePipContext';
 export { useIsPipSupported } from './useIsPipSupported';
+export { useVideoPip } from './useVideoPip';
 
 export { PipContext } from './PipContext';
 export type { PipContextValue } from './PipContext';

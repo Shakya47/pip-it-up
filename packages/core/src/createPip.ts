@@ -1,15 +1,24 @@
-import { isSupported } from './support';
+import { isSupported, isVideoPipSupported, isWebkitPipSupported, enterVideoPip, exitVideoPip } from './support';
 import { copyStylesOnce, startStylesSync } from './styles';
 import { applyMoveMode, applyCloneMode } from './dom-modes';
 import { startKeyboardBridge } from './keyboard-bridge';
+import { startPointerBridge } from './pointer-bridge';
 import { snapshotScrollFocus } from './focus-scroll';
 import { attachFixedSizeGuard } from './fixed-size';
 import { executeFallback } from './fallback';
 import type { PipOptions, PipInstance, PipState } from './types';
 
+const findSingleVideo = (el?: HTMLElement): HTMLVideoElement | null => {
+  if (!el) return null;
+  if (el.tagName === 'VIDEO') return el as HTMLVideoElement;
+  const videos = el.querySelectorAll('video');
+  return videos.length === 1 ? videos[0] : null;
+};
+
 let idCounter = 0;
 
-export const createPip = (options: PipOptions = {}): PipInstance => {
+export const createPip = (initOptions: PipOptions = {}): PipInstance => {
+  let options = { ...initOptions };
   const id = options.id || `pip-instance-${++idCounter}`;
   
   let state: PipState = {
@@ -42,9 +51,16 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
 
   const close = () => {
     if (!state.isOpen) return;
+    isOpening = false;
 
     if (state.pipWindow && !state.pipWindow.closed) {
       state.pipWindow.close();
+    }
+
+    const contentEl = defaultElements.contentEl;
+    const video = !options.disableVideoPip ? findSingleVideo(contentEl) : null;
+    if (video) {
+      exitVideoPip(video).catch(() => {});
     }
 
     cleanup();
@@ -64,7 +80,60 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
     const originEl = elements?.originEl ?? defaultElements.originEl;
     const mode = options.mode || 'move';
 
-    if (!state.isSupported || options.forceFallback) {
+    const docPipSupported = isSupported();
+    if (!docPipSupported || options.forceFallback) {
+      const video = !options.disableVideoPip ? findSingleVideo(contentEl) : null;
+      const hasVideoPipSupport = isVideoPipSupported() || isWebkitPipSupported();
+
+      if (video && hasVideoPipSupport) {
+        try {
+          await enterVideoPip(video);
+
+          const handleEnter = () => {
+            updateState({ isOpen: true, pipWindow: null });
+            if (options.onOpen) options.onOpen(window);
+          };
+          const handleLeave = () => {
+            close();
+          };
+          const handleWebKitChange = () => {
+            const isPip = (video as any).webkitPresentationMode === 'picture-in-picture';
+            if (isPip) {
+              handleEnter();
+            } else {
+              handleLeave();
+            }
+          };
+          const handleWebKitFullscreenBegin = () => {
+            handleEnter();
+          };
+          const handleWebKitFullscreenEnd = () => {
+            handleLeave();
+          };
+
+          video.addEventListener('enterpictureinpicture', handleEnter);
+          video.addEventListener('leavepictureinpicture', handleLeave);
+          video.addEventListener('webkitpresentationmodechanged', handleWebKitChange);
+          video.addEventListener('webkitbeginfullscreen', handleWebKitFullscreenBegin);
+          video.addEventListener('webkitendfullscreen', handleWebKitFullscreenEnd);
+
+          disposers.push(() => {
+            video.removeEventListener('enterpictureinpicture', handleEnter);
+            video.removeEventListener('leavepictureinpicture', handleLeave);
+            video.removeEventListener('webkitpresentationmodechanged', handleWebKitChange);
+            video.removeEventListener('webkitbeginfullscreen', handleWebKitFullscreenBegin);
+            video.removeEventListener('webkitendfullscreen', handleWebKitFullscreenEnd);
+          });
+
+          updateState({ isOpen: true, pipWindow: null });
+          isOpening = false;
+          if (options.onOpen) options.onOpen(window);
+          return;
+        } catch (err) {
+          console.warn('[pip-it-up] Video PiP open failed, falling back to standard fallback:', err);
+        }
+      }
+
       isOpening = false;
       const fallback = options.fallback || 'none';
       const fallbackCleanup = executeFallback(fallback, options, contentEl, originEl);
@@ -115,6 +184,13 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
         disallowReturnToOpener: options.disallowReturnToOpener,
         preferInitialWindowPlacement: options.preferInitialWindowPlacement,
       });
+
+      // The window could already be closed by the time the promise resolves
+      // (e.g. browser killed it). Bail out to avoid attaching listeners to a dead window.
+      if (pipWindow.closed) {
+        isOpening = false;
+        return;
+      }
 
       const onPipClose = () => close();
       pipWindow.addEventListener('pagehide', onPipClose);
@@ -180,6 +256,10 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
         disposers.push(startKeyboardBridge(pipWindow, window));
       }
 
+      if (options.forwardPointerEvents !== false) {
+        disposers.push(startPointerBridge(pipWindow, window));
+      }
+
       if (options.fixedSize) {
         disposers.push(attachFixedSizeGuard(pipWindow, width, height));
       }
@@ -235,13 +315,22 @@ export const createPip = (options: PipOptions = {}): PipInstance => {
     getState: () => state,
     setDefaultElements: (elements) => {
       defaultElements = elements;
+      if (!isSupported()) {
+        const video = !options.disableVideoPip ? findSingleVideo(elements.contentEl) : null;
+        const hasVideoPipSupport = isVideoPipSupported() || isWebkitPipSupported();
+        updateState({
+          isSupported: !!(video && hasVideoPipSupport),
+        });
+      }
+    },
+    updateOptions: (newOptions) => {
+      options = { ...options, ...newOptions };
     },
     destroy: () => {
       close();
       listeners.clear();
     },
   };
-
 
   return instance;
 };

@@ -1,7 +1,7 @@
 {
   "name": "@pip-it-up/react",
   "version": "0.1.9",
-  "description": "React components and hooks for the Document Picture-in-Picture API — PipWrapper, PipTrigger, usePip, useIsPipSupported (public beta)",
+  "description": "React components and hooks for the Document Picture-in-Picture API — PipWrapper, PipTrigger, usePip, useVideoPip, useIsPipSupported (public beta)",
   "keywords": [
     "picture-in-picture",
     "pip",
@@ -12,7 +12,9 @@
     "pip-window",
     "react-hooks",
     "react-components",
-    "document-pip"
+    "document-pip",
+    "video-pip",
+    "useVideoPip"
   ],
   "repository": {
     "type": "git",
