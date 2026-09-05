@@ -1,4 +1,9 @@
-export const attachFixedSizeGuard = (pipWindow: Window, width: number, height: number) => {
+export const attachFixedSizeGuard = (
+  pipWindow: Window,
+  width: number,
+  height: number,
+  signal?: AbortSignal,
+) => {
   const handleResize = () => {
     try {
       pipWindow.resizeTo(width, height);
@@ -7,7 +12,8 @@ export const attachFixedSizeGuard = (pipWindow: Window, width: number, height: n
     }
   };
 
-  pipWindow.addEventListener('resize', handleResize);
+  const signalOptions = signal ? [{ signal }] : [];
+  pipWindow.addEventListener('resize', handleResize, ...signalOptions);
 
   pipWindow.document.documentElement.style.width = `${width}px`;
   pipWindow.document.documentElement.style.height = `${height}px`;

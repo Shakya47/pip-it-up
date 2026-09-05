@@ -27,3 +27,7 @@ coverage/
 
 # IDE files
 .vscode/
+.claude/
+
+# Local tarballs for testing against other projects (never published)
+.local-pack/

@@ -1,0 +1,63 @@
+version: 2
+updates:
+  # --- npm: one entry per workspace, matching pnpm-workspace.yaml ---
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "chore(deps):" }
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/core"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "chore(deps):" }
+    ignore:
+      - dependency-name: "@pip-it-up/*"
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/react"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "chore(deps):" }
+    ignore:
+      - dependency-name: "@pip-it-up/*"
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/apps/storybook"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "chore(deps):" }
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/examples/playground"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "chore(deps):" }
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- GitHub Actions: keeps the CI-501 SHA pins current ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    commit-message: { prefix: "chore(deps):" }

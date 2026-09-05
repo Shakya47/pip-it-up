@@ -1,32 +1,85 @@
-export const applyMoveMode = (pipWindow: Window, contentEl: HTMLElement, originEl: HTMLElement, reserveSpace = true) => {
+import { isUsable } from './elements';
+
+export interface MoveModeDeps {
+  /**
+   * Resolved at CLOSE time, not at open time. Returns the current restore parent, which may be
+   * a node that did not exist when the PiP window opened.
+   */
+  getOriginEl: () => HTMLElement | undefined;
+  /** When true, freeze the origin's box and the content's box while the content is away. */
+  reserveSpace: boolean;
+  /**
+   * Fallback parent when `getOriginEl()` returns nothing usable at close time. Supplied by the
+   * caller so `@pip-it-up/core` never depends on the React garage module.
+   * When omitted, unusable-origin teardown leaves `contentEl` in the PiP document and logs a warning.
+   */
+  getFallbackParent?: () => HTMLElement | undefined;
+}
+
+export const applyMoveMode = (
+  pipWindow: Window,
+  contentEl: HTMLElement,
+  deps: MoveModeDeps,
+): (() => void) => {
+  const { getOriginEl, reserveSpace, getFallbackParent } = deps;
+
   if (reserveSpace) {
     const rect = contentEl.getBoundingClientRect();
-    
-    // Set exact width/height on originEl so placeholders can use height: 100%
-    originEl.style.minWidth = `${rect.width}px`;
-    originEl.style.minHeight = `${rect.height}px`;
-    originEl.style.width = `${rect.width}px`;
-    originEl.style.height = `${rect.height}px`;
-    
-    // Set exact width/height on contentEl so it doesn't shrink when moved
+    let origin: HTMLElement | undefined;
+    try {
+      origin = getOriginEl();
+    } catch {
+      origin = undefined;
+    }
+    if (isUsable(origin)) {
+      origin.style.minWidth = `${rect.width}px`;
+      origin.style.minHeight = `${rect.height}px`;
+      origin.style.width = `${rect.width}px`;
+      origin.style.height = `${rect.height}px`;
+    }
     contentEl.style.width = `${rect.width}px`;
     contentEl.style.height = `${rect.height}px`;
   }
 
   pipWindow.document.body.appendChild(contentEl);
-  
+
   return () => {
-    if (originEl && contentEl) {
-      if (reserveSpace) {
-        originEl.style.minWidth = '';
-        originEl.style.minHeight = '';
-        originEl.style.width = '';
-        originEl.style.height = '';
-        contentEl.style.width = '';
-        contentEl.style.height = '';
-      }
-      originEl.appendChild(contentEl);
+    let origin: HTMLElement | undefined;
+    try {
+      origin = getOriginEl();
+    } catch {
+      origin = undefined;
     }
+
+    if (reserveSpace) {
+      if (isUsable(origin)) {
+        origin.style.minWidth = '';
+        origin.style.minHeight = '';
+        origin.style.width = '';
+        origin.style.height = '';
+      }
+      contentEl.style.width = '';
+      contentEl.style.height = '';
+    }
+
+    if (isUsable(origin)) {
+      origin.appendChild(contentEl);
+      return;
+    }
+
+    let fallback: HTMLElement | undefined;
+    try {
+      fallback = getFallbackParent?.();
+    } catch {
+      fallback = undefined;
+    }
+    if (isUsable(fallback)) {
+      fallback.appendChild(contentEl);
+      return;
+    }
+
+    console.warn('[pip-it-up] No usable restore target for move mode; content remains in the PiP document.');
+    return;
   };
 };
 

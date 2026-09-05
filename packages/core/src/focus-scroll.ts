@@ -1,3 +1,5 @@
+import { isUsable } from './elements';
+
 export interface SnapshotOptions {
   restoreScroll?: boolean;
   restoreFocus?: boolean;
@@ -66,7 +68,7 @@ export const snapshotScrollFocus = (rootEl: HTMLElement, opts: SnapshotOptions =
         }
       }
 
-      if (restoreFocus && activeElement && openerDoc.body.contains(activeElement)) {
+      if (restoreFocus && isUsable(activeElement) && openerDoc.body.contains(activeElement)) {
         activeElement.focus({ preventScroll: true });
 
         if (selectionStart !== null && selectionEnd !== null) {
