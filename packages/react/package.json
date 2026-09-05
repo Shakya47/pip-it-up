@@ -1,7 +1,7 @@
 {
   "name": "@pip-it-up/react",
   "version": "0.1.10",
-  "description": "React components and hooks for the Document Picture-in-Picture API — PipWrapper, PipTrigger, usePip, useVideoPip, useIsPipSupported (public beta)",
+  "description": "React components and hooks for the Document Picture-in-Picture API \u2014 PipWrapper, PipTrigger, usePip, useVideoPip, useIsPipSupported (public beta)",
   "keywords": [
     "picture-in-picture",
     "pip",
@@ -39,12 +39,15 @@
     "access": "public",
     "provenance": true
   },
+  "engines": {
+    "node": ">=20"
+  },
   "sideEffects": false,
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node -e \"require('fs').rmSync('dist/index.d.mts',{force:true})\"",
     "dev": "tsup --watch",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",

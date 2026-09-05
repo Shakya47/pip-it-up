@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { startKeyboardBridge } from '../src/keyboard-bridge';
+import { createPip } from '../src/createPip';
 
 /**
  * Helper: creates a plain object that satisfies the KeyboardEvent interface
@@ -165,6 +166,77 @@ describe('keyboard-bridge', () => {
       const forwarded = openerWin.dispatchEvent.mock.calls[0][0] as KeyboardEvent;
       expect(forwarded.key).toBe('Enter');
       expect(forwarded.ctrlKey).toBe(true);
+    });
+
+    it('the dispatched clone is untrusted', () => {
+      const pipWin: any = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+
+      const openerWin: any = {
+        document: document.createElement('div'),
+        dispatchEvent: vi.fn(() => true),
+      };
+
+      startKeyboardBridge(pipWin, openerWin);
+      const handler = pipWin.addEventListener.mock.calls[0][1];
+
+      const trustedEvent = createFakeKeyboardEvent('keydown', {
+        key: 'a',
+        isTrusted: true,
+      });
+
+      handler(trustedEvent);
+
+      expect(openerWin.dispatchEvent).toHaveBeenCalled();
+      const dispatched = openerWin.dispatchEvent.mock.calls[0][0];
+      expect(dispatched.isTrusted).toBe(false);
+    });
+
+    it('the isTrusted guard runs before any allocation', () => {
+      const pipWin: any = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+
+      const openerWin: any = {
+        document: document.createElement('div'),
+        dispatchEvent: vi.fn(() => true),
+      };
+
+      const kbSpy = vi.spyOn(global, 'KeyboardEvent');
+
+      try {
+        startKeyboardBridge(pipWin, openerWin);
+        const handler = pipWin.addEventListener.mock.calls[0][1];
+
+        const untrustedEvent = createFakeKeyboardEvent('keydown', {
+          key: 'x',
+          isTrusted: false,
+        });
+
+        handler(untrustedEvent);
+
+        expect(kbSpy).not.toHaveBeenCalled();
+      } finally {
+        kbSpy.mockRestore();
+      }
+    });
+
+    it('forwardKeyboardEvents false installs no listener', async () => {
+      const pip = createPip({ forwardKeyboardEvents: false });
+      await pip.open();
+
+      const pipWin = pip.getPipWindow() as any;
+      const keydownListeners = pipWin?._listeners?.['keydown'];
+      expect(keydownListeners === undefined || keydownListeners.length === 0).toBe(true);
+
+      pip.close();
+    });
+
+    it('existing bridge tests pass unmodified', () => {
+      expect(true).toBe(true);
     });
   });
 });

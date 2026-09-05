@@ -1,8 +1,24 @@
-export const startKeyboardBridge = (pipWindow: Window, openerWindow: Window = window) => {
+/**
+ * Bridges real keystrokes from the PiP window to the opener.
+ *
+ * Security: only forward user-initiated keystrokes. Synthetic events created via
+ * dispatchEvent() have isTrusted === false and are ignored, which eliminates spoofed
+ * keystroke escalation from any script running in the PiP window.
+ *
+ * ECHO-LOOP INVARIANT (load-bearing, must survive refactors): the clone this function
+ * dispatches on the opener has isTrusted === false by construction. If a future change ever
+ * bridges opener -> PiP as well, the isTrusted guard makes an infinite echo impossible.
+ * Removing the guard would therefore introduce both a spoofing vector AND an event storm.
+ *
+ * Privacy: see PipOptions.forwardKeyboardEvents. Every forwarded keystroke is observable by
+ * any opener-side window listener.
+ */
+export const startKeyboardBridge = (
+  pipWindow: Window,
+  openerWindow: Window = window,
+  signal?: AbortSignal,
+) => {
   const handleKey = (e: KeyboardEvent) => {
-    // Security: only forward real user-initiated keystrokes.
-    // Synthetic events created via dispatchEvent() have isTrusted === false
-    // and are ignored to prevent spoofed keystroke escalation from PiP-side scripts.
     if (!e.isTrusted) return;
 
     const init: KeyboardEventInit = {
@@ -33,8 +49,9 @@ export const startKeyboardBridge = (pipWindow: Window, openerWindow: Window = wi
     }
   };
 
-  pipWindow.addEventListener('keydown', handleKey);
-  pipWindow.addEventListener('keyup', handleKey);
+  const signalOptions = signal ? [{ signal }] : [];
+  pipWindow.addEventListener('keydown', handleKey, ...signalOptions);
+  pipWindow.addEventListener('keyup', handleKey, ...signalOptions);
 
   return () => {
     pipWindow.removeEventListener('keydown', handleKey);

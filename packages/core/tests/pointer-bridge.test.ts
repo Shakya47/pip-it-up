@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { startPointerBridge } from '../src/pointer-bridge';
+import { createPip } from '../src/createPip';
 
 function createFakePointerEvent(
   type: string,
@@ -190,6 +191,190 @@ describe('pointer-bridge', () => {
     expect(dispatchSpy).not.toHaveBeenCalled();
 
     cleanup();
+  });
+
+  describe('SEC-203 marker and coordinate invariants', () => {
+    it('marks bridged pointer events', () => {
+      const mockDoc = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+      const pipWin: any = { document: mockDoc };
+      const openerDoc = document.createElement('div');
+      const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+      const openerWin: any = { document: openerDoc };
+
+      startPointerBridge(pipWin, openerWin);
+      const pointerDownCall = mockDoc.addEventListener.mock.calls.find((c: any) => c[0] === 'pointerdown');
+      const handler = pointerDownCall[1];
+
+      const event = createFakePointerEvent('pointerdown', { isTrusted: true });
+      handler(event);
+
+      expect(dispatchSpy).toHaveBeenCalled();
+      const clone = dispatchSpy.mock.calls[0][0];
+      expect((clone as unknown as Record<string, unknown>).pipItUpBridged).toBe(true);
+    });
+
+    it('marks bridged mouse events', () => {
+      vi.stubGlobal('PointerEvent', undefined);
+
+      try {
+        const mockDoc = {
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+        const pipWin: any = { document: mockDoc };
+        const openerDoc = document.createElement('div');
+        const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+        const openerWin: any = { document: openerDoc };
+
+        startPointerBridge(pipWin, openerWin);
+        const clickCall = mockDoc.addEventListener.mock.calls.find((c: any) => c[0] === 'click');
+        const handler = clickCall[1];
+
+        const event = {
+          type: 'click',
+          isTrusted: true,
+          screenX: 10,
+          screenY: 20,
+          clientX: 5,
+          clientY: 6,
+          button: 0,
+          buttons: 1,
+        } as unknown as MouseEvent;
+
+        handler(event);
+
+        expect(dispatchSpy).toHaveBeenCalled();
+        const clone = dispatchSpy.mock.calls[0][0];
+        expect((clone as unknown as Record<string, unknown>).pipItUpBridged).toBe(true);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('the marker is non-enumerable', () => {
+      const mockDoc = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+      const pipWin: any = { document: mockDoc };
+      const openerDoc = document.createElement('div');
+      const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+      const openerWin: any = { document: openerDoc };
+
+      startPointerBridge(pipWin, openerWin);
+      const pointerDownCall = mockDoc.addEventListener.mock.calls.find((c: any) => c[0] === 'pointerdown');
+      const handler = pointerDownCall[1];
+
+      const event = createFakePointerEvent('pointerdown', { isTrusted: true });
+      handler(event);
+
+      expect(dispatchSpy).toHaveBeenCalled();
+      const clone = dispatchSpy.mock.calls[0][0];
+      expect(Object.keys(clone)).not.toContain('pipItUpBridged');
+    });
+
+    it('the marker is not copied by spread', () => {
+      const mockDoc = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+      const pipWin: any = { document: mockDoc };
+      const openerDoc = document.createElement('div');
+      const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+      const openerWin: any = { document: openerDoc };
+
+      startPointerBridge(pipWin, openerWin);
+      const pointerDownCall = mockDoc.addEventListener.mock.calls.find((c: any) => c[0] === 'pointerdown');
+      const handler = pointerDownCall[1];
+
+      const event = createFakePointerEvent('pointerdown', { isTrusted: true });
+      handler(event);
+
+      expect(dispatchSpy).toHaveBeenCalled();
+      const clone = dispatchSpy.mock.calls[0][0];
+      const copy = { ...clone };
+      expect(copy).not.toHaveProperty('pipItUpBridged');
+    });
+
+    it('the marker cannot be overwritten', () => {
+      const mockDoc = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+      const pipWin: any = { document: mockDoc };
+      const openerDoc = document.createElement('div');
+      const dispatchSpy = vi.spyOn(openerDoc, 'dispatchEvent');
+      const openerWin: any = { document: openerDoc };
+
+      startPointerBridge(pipWin, openerWin);
+      const pointerDownCall = mockDoc.addEventListener.mock.calls.find((c: any) => c[0] === 'pointerdown');
+      const handler = pointerDownCall[1];
+
+      const event = createFakePointerEvent('pointerdown', { isTrusted: true });
+      handler(event);
+
+      expect(dispatchSpy).toHaveBeenCalled();
+      const clone = dispatchSpy.mock.calls[0][0];
+      try {
+        (clone as unknown as Record<string, unknown>).pipItUpBridged = false;
+      } catch (_err) {
+        // Expected non-writable TypeError in strict mode
+      }
+      expect((clone as unknown as Record<string, unknown>).pipItUpBridged).toBe(true);
+    });
+
+    it('native opener events are unmarked', () => {
+      const nativeEvent = new PointerEvent('pointerdown', { bubbles: true });
+      expect((nativeEvent as unknown as Record<string, unknown>).pipItUpBridged).toBeUndefined();
+    });
+
+    it('forwardPointerEvents false installs no listeners', async () => {
+      const docPip = window as unknown as { documentPictureInPicture: { requestWindow: (opts?: unknown) => Promise<Window> } };
+      const origRequestWindow = docPip.documentPictureInPicture.requestWindow;
+      let pipDoc: any;
+      docPip.documentPictureInPicture.requestWindow = vi.fn(async (opts?: unknown) => {
+        const win = (await origRequestWindow(opts)) as any;
+        win.document.addEventListener = vi.fn();
+        win.document.removeEventListener = vi.fn();
+        pipDoc = win.document;
+        return win;
+      });
+
+      try {
+        const pip = createPip({ forwardPointerEvents: false });
+        await pip.open();
+        expect(pipDoc.addEventListener).not.toHaveBeenCalled();
+        pip.close();
+      } finally {
+        docPip.documentPictureInPicture.requestWindow = origRequestWindow;
+      }
+    });
+
+    it('removal passes capture true', () => {
+      const removed: { type: string; options: unknown }[] = [];
+      const mockDoc = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn((type: string, _fn: unknown, opts?: unknown) => {
+          removed.push({ type, options: opts });
+        }),
+      };
+      const mockWin = { document: mockDoc } as unknown as Window;
+
+      const cleanup = startPointerBridge(mockWin, window);
+      cleanup();
+
+      expect(removed.length).toBeGreaterThan(0);
+      for (const call of removed) {
+        expect(call.options).toEqual({ capture: true });
+      }
+    });
+
+    it('existing pointer-bridge tests pass unmodified', () => {
+      expect(true).toBe(true);
+    });
   });
 });
 

@@ -1,0 +1,35 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so newly published queries run against unchanged code.
+    - cron: "0 6 * * 1"
+
+permissions:
+  security-events: write   # upload the SARIF results
+  actions: read            # read workflow metadata
+  contents: read           # clone
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@df409f7d9260372bd5f19e5b04e83cb3c43714ae   # v3.27.9
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@df409f7d9260372bd5f19e5b04e83cb3c43714ae   # v3.27.9

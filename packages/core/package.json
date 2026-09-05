@@ -1,7 +1,7 @@
 {
   "name": "@pip-it-up/core",
   "version": "0.1.10",
-  "description": "Vanilla JS engine for the Document Picture-in-Picture API with automatic video PiP fallback — move, clone, or portal any DOM element into a floating PiP window (public beta)",
+  "description": "Vanilla JS engine for the Document Picture-in-Picture API with automatic video PiP fallback \u2014 move, clone, or portal any DOM element into a floating PiP window (public beta)",
   "keywords": [
     "picture-in-picture",
     "pip",
@@ -40,14 +40,15 @@
     "access": "public",
     "provenance": true
   },
-  "sideEffects": [
-    "src/global.d.ts"
-  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node -e \"require('fs').rmSync('dist/index.d.mts',{force:true})\"",
     "dev": "tsup --watch",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "typecheck": "tsc --noEmit",

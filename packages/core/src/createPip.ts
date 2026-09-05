@@ -6,7 +6,15 @@ import { startPointerBridge } from './pointer-bridge';
 import { snapshotScrollFocus } from './focus-scroll';
 import { attachFixedSizeGuard } from './fixed-size';
 import { executeFallback } from './fallback';
-import type { PipOptions, PipInstance, PipState } from './types';
+import { CLOSE_POLL_MS } from './constants';
+import { mergeElements, ELEMENT_SLOTS } from './elements';
+import type { PipOptions, PipInstance, PipState, PipElements, ElementPatch, ElementSlot, ElementRegistration, PipTeardownHook } from './types';
+
+const INERT_REGISTRATION: ElementRegistration = Object.freeze({
+  released: true,
+  update() {},
+  release() {},
+});
 
 const findSingleVideo = (el?: HTMLElement): HTMLVideoElement | null => {
   if (!el) return null;
@@ -18,7 +26,7 @@ const findSingleVideo = (el?: HTMLElement): HTMLVideoElement | null => {
 let idCounter = 0;
 
 export const createPip = (initOptions: PipOptions = {}): PipInstance => {
-  let options = { ...initOptions };
+  const options = { ...initOptions };
   const id = options.id || `pip-instance-${++idCounter}`;
   
   let state: PipState = {
@@ -28,18 +36,99 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
   };
 
   const listeners = new Set<() => void>();
+  const elementListeners = new Set<() => void>();
+  const teardownHooks = new Set<PipTeardownHook>();
   const disposers: Array<() => void> = [];
-  let defaultElements: { contentEl?: HTMLElement; originEl?: HTMLElement } = {};
+  const lifetimeController = new AbortController();
+  /** Aborted by `cleanup()`. One controller per open session; a fresh one per `open()`. */
+  let sessionController: AbortController | null = null;
+  let defaultElements: PipElements = {};
+  let destroyed = false;
+  let isOpening = false;
+  // Re-entrancy guard. `pipWindow.close()` fires `pagehide` synchronously, which routes back into
+  // close(). A dedicated flag is used instead of mutating `state.isOpen` directly, because
+  // `getState()` returns `state` by reference and React holds it as a useSyncExternalStore
+  // snapshot; mutating it in place changes React's snapshot without notifying React.
+  let isClosing = false;
+
+  const notifyElementListeners = () => {
+    elementListeners.forEach((fn) => fn());
+  };
 
   const updateState = (newState: Partial<PipState>) => {
     state = { ...state, ...newState };
     listeners.forEach((fn) => fn());
   };
 
+  const refreshSupportForVideoFallback = () => {
+    if (!isSupported()) {
+      const video = !options.disableVideoPip ? findSingleVideo(defaultElements.contentEl) : null;
+      const hasVideoPipSupport = isVideoPipSupported() || isWebkitPipSupported();
+      updateState({
+        isSupported: !!(video && hasVideoPipSupport),
+      });
+    }
+  };
+
+  const commitElements = (next: PipElements) => {
+    if (next === defaultElements) return;
+    defaultElements = next;
+    notifyElementListeners();
+    refreshSupportForVideoFallback();
+  };
+
+  const registerElements = (patch: ElementPatch): ElementRegistration => {
+    if (destroyed) return INERT_REGISTRATION;
+
+    const claims = new Map<ElementSlot, HTMLElement>();
+    let released = false;
+
+    const apply = (next: ElementPatch) => {
+      if (released || destroyed) return;
+      for (const slot of ELEMENT_SLOTS) {
+        if (!(slot in next)) continue;
+        const value = next[slot];
+        if (value === undefined) continue;
+        if (value === null) {
+          claims.delete(slot);
+          continue;
+        }
+        claims.set(slot, value);
+      }
+      commitElements(mergeElements(defaultElements, next));
+    };
+
+    apply(patch);
+
+    return {
+      get released() {
+        return released;
+      },
+      update: apply,
+      release: () => {
+        if (released) return;
+        released = true;
+        const revert: ElementPatch = {};
+        let any = false;
+        for (const [slot, node] of claims) {
+          if (defaultElements[slot] === node) {
+            revert[slot] = null;
+            any = true;
+          }
+        }
+        claims.clear();
+        if (any) {
+          commitElements(mergeElements(defaultElements, revert));
+        }
+      },
+    };
+  };
+
   const cleanup = () => {
     while (disposers.length > 0) {
       const dispose = disposers.pop();
       if (dispose) {
+        // Leak vector L2: a throwing disposer must not abandon the rest of the LIFO stack.
         try {
           dispose();
         } catch (err) {
@@ -49,30 +138,68 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
     }
   };
 
-  const close = () => {
-    if (!state.isOpen) return;
-    isOpening = false;
-
-    if (state.pipWindow && !state.pipWindow.closed) {
-      state.pipWindow.close();
-    }
-
-    const contentEl = defaultElements.contentEl;
-    const video = !options.disableVideoPip ? findSingleVideo(contentEl) : null;
-    if (video) {
-      exitVideoPip(video).catch(() => {});
-    }
-
-    cleanup();
-    updateState({ isOpen: false, pipWindow: null });
-
-    if (options.onClose) {
-      options.onClose();
+  /**
+   * Runs every teardown hook synchronously, LIFO, each isolated.
+   *
+   * Snapshot-then-reverse is mandatory: a hook may unregister itself or another hook during the
+   * run, and mutating a Set mid-iteration would skip entries.
+   *
+   * Isolation is mandatory: one consumer's repatriation failure must never abandon the window,
+   * strand the isOpening gate, or skip the remaining hooks. Mirrors cleanup()'s per-disposer
+   * try/catch (MAINTENANCE_GUIDE Section 5).
+   */
+  const runTeardownHooks = (pipWindow: Window | null): void => {
+    for (const hook of Array.from(teardownHooks).reverse()) {
+      try {
+        hook(pipWindow);
+      } catch (err) {
+        console.error('[pip-it-up] teardown hook failed:', err);
+      }
     }
   };
 
-  let isOpening = false;
+  const registerTeardown = (fn: PipTeardownHook) => {
+    if (destroyed) return () => {};
+    teardownHooks.add(fn);
+    return () => {
+      teardownHooks.delete(fn);
+    };
+  };
+
+  const close = () => {
+    if (!state.isOpen || isClosing) return;
+    isClosing = true;
+    isOpening = false;
+    try {
+      const pipWindow = state.pipWindow;
+      runTeardownHooks(pipWindow);
+
+      if (pipWindow && !pipWindow.closed) {
+        pipWindow.close();
+      }
+
+      const contentEl = defaultElements.contentEl;
+      const video = !options.disableVideoPip ? findSingleVideo(contentEl) : null;
+      if (video) {
+        exitVideoPip(video).catch(() => {});
+      }
+
+      cleanup();
+      updateState({ isOpen: false, pipWindow: null });
+
+      if (options.onClose) {
+        options.onClose();
+      }
+    } finally {
+      isClosing = false;
+    }
+  };
+
   const open = async (elements?: { contentEl?: HTMLElement; originEl?: HTMLElement }) => {
+    if (destroyed) {
+      console.warn('[pip-it-up] ERR_DESTROYED: open() called on a destroyed instance.');
+      return;
+    }
     if (state.isOpen || isOpening) return;
     
     isOpening = true;
@@ -88,6 +215,12 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
       if (video && hasVideoPipSupport) {
         try {
           await enterVideoPip(video);
+
+          sessionController = new AbortController();
+          disposers.push(() => {
+            sessionController?.abort();
+            sessionController = null;
+          });
 
           const handleEnter = () => {
             updateState({ isOpen: true, pipWindow: null });
@@ -111,11 +244,11 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
             handleLeave();
           };
 
-          video.addEventListener('enterpictureinpicture', handleEnter);
-          video.addEventListener('leavepictureinpicture', handleLeave);
-          video.addEventListener('webkitpresentationmodechanged', handleWebKitChange);
-          video.addEventListener('webkitbeginfullscreen', handleWebKitFullscreenBegin);
-          video.addEventListener('webkitendfullscreen', handleWebKitFullscreenEnd);
+          video.addEventListener('enterpictureinpicture', handleEnter, { signal: sessionController.signal });
+          video.addEventListener('leavepictureinpicture', handleLeave, { signal: sessionController.signal });
+          video.addEventListener('webkitpresentationmodechanged', handleWebKitChange, { signal: sessionController.signal });
+          video.addEventListener('webkitbeginfullscreen', handleWebKitFullscreenBegin, { signal: sessionController.signal });
+          video.addEventListener('webkitendfullscreen', handleWebKitFullscreenEnd, { signal: sessionController.signal });
 
           disposers.push(() => {
             video.removeEventListener('enterpictureinpicture', handleEnter);
@@ -155,6 +288,12 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
         }
       }
 
+      sessionController = new AbortController();
+      disposers.push(() => {
+        sessionController?.abort();
+        sessionController = null;
+      });
+
       let restoreFocusScroll: (() => void) | null = null;
       if ((options.restoreScroll !== false || options.restoreFocus !== false) && contentEl) {
          const snap = snapshotScrollFocus(contentEl, {
@@ -193,8 +332,8 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
       }
 
       const onPipClose = () => close();
-      pipWindow.addEventListener('pagehide', onPipClose);
-      pipWindow.addEventListener('unload', onPipClose);
+      pipWindow.addEventListener('pagehide', onPipClose, { signal: sessionController.signal });
+      pipWindow.addEventListener('unload', onPipClose, { signal: sessionController.signal });
       disposers.push(() => {
         pipWindow.removeEventListener('pagehide', onPipClose);
         pipWindow.removeEventListener('unload', onPipClose);
@@ -213,8 +352,9 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
         if (pipWindow.closed) {
           close();
         }
-      }, 250);
+      }, CLOSE_POLL_MS);
 
+      // Leak vector L2: the close-poll interval outlives the window without this.
       disposers.push(() => {
         clearInterval(closePollInterval);
       });
@@ -226,9 +366,12 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
         copyStylesOnce(pipWindow);
       }
 
-      if (contentEl && originEl && mode === 'move') {
+      if (contentEl && mode === 'move') {
         const reserveSpace = options.reserveSpace !== false;
-        disposers.push(applyMoveMode(pipWindow, contentEl, originEl, reserveSpace));
+        disposers.push(applyMoveMode(pipWindow, contentEl, {
+          getOriginEl: () => defaultElements.originEl, // live binding, not a captured value
+          reserveSpace,
+        }));
       } else if (contentEl && mode === 'clone') {
         disposers.push(applyCloneMode(pipWindow, contentEl));
       }
@@ -253,15 +396,15 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
       }
 
       if (options.forwardKeyboardEvents !== false) {
-        disposers.push(startKeyboardBridge(pipWindow, window));
+        disposers.push(startKeyboardBridge(pipWindow, window, sessionController.signal));
       }
 
       if (options.forwardPointerEvents !== false) {
-        disposers.push(startPointerBridge(pipWindow, window));
+        disposers.push(startPointerBridge(pipWindow, window, sessionController.signal));
       }
 
       if (options.fixedSize) {
-        disposers.push(attachFixedSizeGuard(pipWindow, width, height));
+        disposers.push(attachFixedSizeGuard(pipWindow, width, height, sessionController.signal));
       }
 
       if (restoreFocusScroll) {
@@ -280,6 +423,7 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
           options.onPipWindowReady(pipWindow);
         }
       });
+      // Leak vector L11: a pending rAF callback holds the pipWindow reference.
       disposers.push(() => cancelAnimationFrame(rafId));
     } catch (err: unknown) {
       isOpening = false;
@@ -309,26 +453,64 @@ export const createPip = (initOptions: PipOptions = {}): PipInstance => {
     isOpen: () => state.isOpen,
     getPipWindow: () => state.pipWindow,
     subscribe: (fn) => {
+      if (destroyed) return () => {};
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
     getState: () => state,
-    setDefaultElements: (elements) => {
-      defaultElements = elements;
-      if (!isSupported()) {
-        const video = !options.disableVideoPip ? findSingleVideo(elements.contentEl) : null;
-        const hasVideoPipSupport = isVideoPipSupported() || isWebkitPipSupported();
-        updateState({
-          isSupported: !!(video && hasVideoPipSupport),
-        });
+    setDefaultElements: (elements: Partial<PipElements>) => {
+      if (destroyed) return;
+      commitElements(mergeElements(defaultElements, elements as ElementPatch));
+    },
+    /**
+     * Merge new options into the stored set.
+     *
+     * Tri-state semantics, matching element slots (MAINTENANCE_GUIDE Section 10):
+     *  - absent key or `undefined` — leave the stored value untouched
+     *  - any other value          — overwrite
+     *
+     * `id` and `mode` are read once at construction and are IGNORED here; changing them after
+     * creation would desynchronise the registry key and React's DOM-ownership contract.
+     *
+     * A caller that truly needs to clear a callback passes a no-op function, or recreates
+     * the instance.
+     */
+    updateOptions: (newOptions) => {
+      if (destroyed) return;
+      const keys = Object.keys(newOptions) as (keyof PipOptions)[];
+      for (const key of keys) {
+        if (key === 'id' || key === 'mode') continue; // construction-time only
+        const value = newOptions[key];
+        if (value === undefined) continue; // no opinion: preserve the stored value
+        (options as Record<string, unknown>)[key] = value;
       }
     },
-    updateOptions: (newOptions) => {
-      options = { ...options, ...newOptions };
-    },
     destroy: () => {
+      if (destroyed) return;
       close();
+      destroyed = true;
+      lifetimeController.abort();
+      teardownHooks.clear();
+      // Leak vector L3: subscriber sets must not outlive the instance.
       listeners.clear();
+      elementListeners.clear();
+      defaultElements = {};
+    },
+    registerElements,
+    registerTeardown,
+    getDefaultElements: () => defaultElements,
+    subscribeElements: (fn) => {
+      if (destroyed) return () => {};
+      elementListeners.add(fn);
+      return () => {
+        elementListeners.delete(fn);
+      };
+    },
+    get signal() {
+      return lifetimeController.signal;
+    },
+    get destroyed() {
+      return destroyed;
     },
   };
 

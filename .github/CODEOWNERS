@@ -1,0 +1,10 @@
+# Default owner for everything.
+*                     @Shakya47
+
+# Workflow files get an explicit rule so they stay protected even if the default above is ever
+# broadened. Workflow edits are the highest-leverage supply-chain surface in the repository.
+/.github/workflows/   @Shakya47
+
+# Architectural invariants: changes here must be reviewed against the implementation, not merged
+# as "docs only". MAINTENANCE_GUIDE.md and the master specs are what the test suite encodes.
+/specs/               @Shakya47

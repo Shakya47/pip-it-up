@@ -31,7 +31,15 @@ export const executeFallback = (
           return;
         }
 
-        window.open(options.fallbackUrl, '_blank', 'noopener,noreferrer');
+        // Navigate to the value that was VALIDATED, never the raw input. window.open() resolves
+        // relative URLs against the document base URL, which a <base href> element can point at
+        // another origin, while validation above resolved against window.location.origin. Passing
+        // `parsed.href` makes the validated URL and the navigated URL the same string.
+        //
+        // The return value is always null under `noopener` (per spec) and must never be
+        // dereferenced. Returning a window handle here is impossible without dropping `noopener`,
+        // which this library will not do.
+        window.open(parsed.href, '_blank', 'noopener,noreferrer');
       } else {
         console.warn('pip-it-up: fallback="new-tab" requires fallbackUrl option');
       }

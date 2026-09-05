@@ -1,16 +1,33 @@
 "use client";
 
-import React, { forwardRef, useEffect, useRef, useSyncExternalStore, ElementType, ReactNode, useImperativeHandle, useLayoutEffect } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useSyncExternalStore,
+  ElementType,
+  ReactNode,
+  useImperativeHandle,
+} from 'react';
+import { useIsomorphicLayoutEffect } from './useIsomorphicLayoutEffect';
 import { createPip, registerPip, unregisterPip } from '@pip-it-up/core';
 import type { PipOptions, PipInstance, PipState } from '@pip-it-up/core';
 import { PipContext } from './PipContext';
-import { PipPortal } from './PipPortal';
+import { SwitchingPortal } from './SwitchingPortal';
+import { getGarage, moveHost } from './garage';
 
 export interface PipWrapperProps extends Omit<PipOptions, 'mode'> {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   as?: ElementType;
+  /**
+   * Element type for the origin container. Defaults to 'div'.
+   * If a custom component is supplied, it must forward its ref (`React.forwardRef`)
+   * to receive the origin DOM node.
+   */
   originAs?: ElementType;
   children?: ReactNode;
   placeholder?: ReactNode;
@@ -20,7 +37,18 @@ export interface PipWrapperProps extends Omit<PipOptions, 'mode'> {
 const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
 const getServerState = () => emptyServerState;
 
-const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), details, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), details, [tabindex]:not([tabindex="-1"])';
+
+const SR_ONLY_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  overflow: 'hidden',
+  clip: 'rect(0,0,0,0)',
+  whiteSpace: 'nowrap',
+  border: '0',
+};
 
 /** Focus the first focusable descendant, or the container itself as a fallback. */
 const focusFirstOrContainer = (el: HTMLElement) => {
@@ -37,8 +65,8 @@ const focusFirstOrContainer = (el: HTMLElement) => {
 
 /**
  * A React wrapper for the Document Picture-in-Picture API.
- * Uses React Portals internally to migrate DOM nodes while keeping
- * the React component tree and state intact.
+ * Uses an immortal SwitchingPortal internally to migrate DOM nodes while keeping
+ * the React component tree and state intact without remounting.
  */
 export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) => {
   const {
@@ -54,10 +82,19 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   } = props;
 
   const contentRef = useRef<HTMLElement>(null);
-  const originRef = useRef<HTMLElement>(null);
-  const instanceRef = useRef<PipInstance | null>(null);
+  const [originEl, setOriginEl] = useState<HTMLElement | null>(null);
+  const setOriginNode = useCallback((node: HTMLElement | null): void => {
+    setOriginEl(node);
+  }, []);
 
-  useImperativeHandle(ref, () => originRef.current as HTMLElement);
+  useImperativeHandle(ref, () => originEl as HTMLElement, [originEl]);
+
+  const originElRef = useRef<HTMLElement | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    originElRef.current = originEl;
+  }, [originEl]);
+
+  const instanceRef = useRef<PipInstance | null>(null);
 
   if (!instanceRef.current) {
     // The React wrapper always uses 'portal' mode at the core level because
@@ -67,23 +104,62 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
 
   const instance = instanceRef.current!;
 
+  const shuttleRef = useRef<HTMLDivElement | null>(null);
+  const handleShuttleReady = useCallback((shuttle: HTMLDivElement | null) => {
+    if (shuttle) {
+      shuttleRef.current = shuttle;
+    }
+  }, []);
+
+  useEffect(() => instance.registerTeardown(() => {
+    const shuttle = shuttleRef.current;
+    if (!shuttle) return;
+    moveHost(shuttle, originElRef.current ?? getGarage());
+  }), [instance]);
+
   useEffect(() => {
     if (coreOptions.id) {
       registerPip(coreOptions.id, instance);
       return () => {
-        unregisterPip(coreOptions.id!);
+        unregisterPip(coreOptions.id!, instance);
       };
     }
   }, [coreOptions.id, instance]);
 
+  // Teardown is DEFERRED by one macrotask and cancelled if this component mounts again before
+  // it fires.
+  //
+  // React Strict Mode simulates an unmount by re-running effects (mount -> unmount -> mount)
+  // WITHOUT re-rendering. The instance is created in the render body via `if (!instanceRef.current)`
+  // and that ref survives the simulated unmount, so a cleanup that destroyed synchronously left
+  // the remounted component holding a TERMINAL instance: `destroy()` sets `destroyed`, and
+  // `open()` then refuses with ERR_DESTROYED. Every <PipWrapper> in a Strict Mode tree became
+  // permanently unable to open.
+  //
+  // MAINTENANCE_GUIDE Section 2 says to keep the instance in a ref and destroy it in cleanup.
+  // That rule predates `destroy()` becoming terminal (CORE-105); deferring restores it, because
+  // a real unmount is not followed by a mount and so still tears down on the next macrotask.
+  const mountedRef = useRef(false);
+  const teardownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
+    mountedRef.current = true;
+    if (teardownTimerRef.current !== null) {
+      clearTimeout(teardownTimerRef.current);
+      teardownTimerRef.current = null;
+    }
+
     return () => {
-      if (instanceRef.current) {
-        instanceRef.current.destroy();
-      }
+      mountedRef.current = false;
+      if (teardownTimerRef.current !== null) clearTimeout(teardownTimerRef.current);
+      teardownTimerRef.current = setTimeout(() => {
+        teardownTimerRef.current = null;
+        if (mountedRef.current) return; // remounted (Strict Mode): keep the instance alive
+        instanceRef.current?.destroy();
+        shuttleRef.current?.remove(); // leak vector L8: the shuttle is owned here
+      }, 0);
     };
   }, []);
-
 
   const state = useSyncExternalStore(
     instance.subscribe,
@@ -91,12 +167,12 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     getServerState
   );
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     instance.setDefaultElements({
       contentEl: contentRef.current || undefined,
-      originEl: originRef.current || undefined,
+      originEl: originEl || undefined,
     });
-  }, [instance, state.isOpen, contentRef.current, originRef.current]);
+  }, [instance, state.isOpen, originEl]);
 
   // Sync option changes to the core instance.
   // MAINTENANCE: If new options are added to PipOptions, add them here too.
@@ -125,7 +201,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     coreOptions.onOpen,
     coreOptions.onPipWindowReady,
     coreOptions.onClose,
-    coreOptions.onError
+    coreOptions.onError,
   ]);
 
   const isControlled = controlledOpen !== undefined;
@@ -148,12 +224,15 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
 
       if (changedToOpen && !state.isOpen) {
         if (contentRef.current) {
+          // After REACT-305, contentRef.current is the same element in either document.
+          // Only width/height may be used (document-independent); top/left are relative
+          // to whichever document currently owns the node.
           const rect = contentRef.current.getBoundingClientRect();
           if (rect.width > 0 && rect.height > 0) {
             lastSizeRef.current = { width: rect.width, height: rect.height };
           }
         }
-        instance.open().catch(err => {
+        instance.open().catch((err) => {
           if (err.name === 'NotAllowedError') {
             console.warn('[PipWrapper] PiP window opening blocked: requires user activation.');
           } else {
@@ -163,7 +242,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
       } else if (changedToClosed && state.isOpen) {
         instance.close();
       }
-      
+
       prevControlledOpenRef.current = controlledOpen;
     }
   }, [controlledOpen, isControlled, state.isOpen, instance]);
@@ -172,7 +251,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   useEffect(() => {
     if (!isControlled && defaultOpen && !defaultOpenHandled.current) {
       defaultOpenHandled.current = true;
-      instance.open().catch(err => {
+      instance.open().catch((err) => {
         if (err.name === 'NotAllowedError') {
           console.warn('[PipWrapper] PiP window defaultOpen blocked: requires user activation.');
         } else {
@@ -182,14 +261,14 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     }
   }, [defaultOpen, isControlled, instance]);
 
-  const [liveMessage, setLiveMessage] = React.useState("");
+  const [liveMessage, setLiveMessage] = React.useState('');
   const prevIsOpenForMessageRef = useRef(state.isOpen);
 
   useEffect(() => {
     if (state.isOpen) {
-      setLiveMessage("Content moved to Picture-in-Picture window");
+      setLiveMessage('Content moved to Picture-in-Picture window');
     } else if (prevIsOpenForMessageRef.current) {
-      setLiveMessage("Content restored to main window");
+      setLiveMessage('Content restored to main window');
     }
     prevIsOpenForMessageRef.current = state.isOpen;
   }, [state.isOpen]);
@@ -218,15 +297,54 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   }, [state.isOpen]);
 
   const defaultPlaceholder = (
-    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', border: '1px dashed color-mix(in srgb, currentColor 30%, #ccc)', borderRadius: 'inherit', width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
-      <div style={{ marginBottom: '4px', fontSize: '0.875rem', fontWeight: 500, opacity: 0.6, textAlign: 'center' }}>📺 In PiP</div>
-      <button onClick={() => instance.close()} aria-label="Restore content from Picture-in-Picture" style={{ fontSize: '0.75rem', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', border: '1px solid currentColor', background: 'transparent', opacity: 0.6 }}>Restore</button>
+    <div
+      style={{
+        padding: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+        border: '1px dashed color-mix(in srgb, currentColor 30%, #ccc)',
+        borderRadius: 'inherit',
+        width: '100%',
+        height: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          marginBottom: '4px',
+          fontSize: '0.875rem',
+          fontWeight: 500,
+          opacity: 0.6,
+          textAlign: 'center',
+        }}
+      >
+        📺 In PiP
+      </div>
+      <button
+        onClick={() => instance.close()}
+        aria-label="Restore content from Picture-in-Picture"
+        style={{
+          fontSize: '0.75rem',
+          padding: '4px 8px',
+          cursor: 'pointer',
+          borderRadius: '4px',
+          border: '1px solid currentColor',
+          background: 'transparent',
+          opacity: 0.6,
+        }}
+      >
+        Restore
+      </button>
     </div>
   );
 
   const placeholderContent = placeholder !== undefined ? placeholder : defaultPlaceholder;
   const lastSizeRef = useRef({ width: 0, height: 0 });
-  
+
   useEffect(() => {
     if (!contentRef.current || state.isOpen) return;
 
@@ -246,8 +364,11 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
   }, [state.isOpen]);
 
   const prevIsOpenRef = useRef(state.isOpen);
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (prevIsOpenRef.current && !state.isOpen && contentRef.current) {
+      // After REACT-305, contentRef.current is the same element in either document.
+      // Only width/height may be used (document-independent); top/left are relative
+      // to whichever document currently owns the node.
       const rect = contentRef.current.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
         lastSizeRef.current = { width: rect.width, height: rect.height };
@@ -256,11 +377,11 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     prevIsOpenRef.current = state.isOpen;
   }, [state.isOpen]);
 
-  useLayoutEffect(() => {
-    if (state.isOpen && coreOptions.reserveSpace !== false && originRef.current) {
+  useIsomorphicLayoutEffect(() => {
+    if (state.isOpen && coreOptions.reserveSpace !== false && originEl) {
       const { width, height } = lastSizeRef.current;
-      const origin = originRef.current;
-      
+      const origin = originEl;
+
       if (width > 0 && height > 0) {
         origin.style.minWidth = `${width}px`;
         origin.style.minHeight = `${height}px`;
@@ -279,44 +400,40 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
         };
       }
     }
-  }, [state.isOpen, coreOptions.reserveSpace, instance]);
+  }, [state.isOpen, coreOptions.reserveSpace, instance, originEl]);
+
+  const placeholderNode = (
+    <div
+      key="placeholder"
+      className={placeholderClassName}
+      style={{
+        width: coreOptions.width ? `${coreOptions.width}px` : '100%',
+        height: lastSizeRef.current.height ? `${lastSizeRef.current.height}px` : 'auto',
+        display: 'inline-block',
+        verticalAlign: 'top',
+        boxSizing: 'border-box',
+      }}
+    >
+      {placeholderContent}
+    </div>
+  );
 
   return (
     <PipContext.Provider value={{ instance, state, isInsidePip: false }}>
-      <div
-        aria-live="polite"
-        aria-atomic="true"
-        style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: '0' }}
-      >
+      <div aria-live="polite" aria-atomic="true" style={SR_ONLY_STYLE}>
         {liveMessage}
       </div>
-      <OriginComponent ref={originRef} style={{ display: 'contents' }}>
-        {state.isOpen && state.pipWindow ? (
-          <>
-            <div
-              key="placeholder"
-              className={placeholderClassName}
-              style={{ 
-                width: coreOptions.width ? `${coreOptions.width}px` : '100%', 
-                height: lastSizeRef.current.height ? `${lastSizeRef.current.height}px` : 'auto',
-                display: 'inline-block',
-                verticalAlign: 'top',
-                boxSizing: 'border-box' 
-              }}
-            >
-              {placeholderContent}
-            </div>
-            <PipPortal pipWindow={state.pipWindow}>
-              <Component ref={contentRef}>
-                {children}
-              </Component>
-            </PipPortal>
-          </>
-        ) : (
-          <Component key="content" ref={contentRef}>
-            {children}
-          </Component>
-        )}
+      <OriginComponent ref={setOriginNode} style={{ position: 'relative' }}>
+        {state.isOpen && state.pipWindow ? placeholderNode : null}
+        <SwitchingPortal
+          id={instance.id}
+          target={state.isOpen && state.pipWindow ? state.pipWindow.document.body : originEl}
+          onShuttleReady={handleShuttleReady}
+        >
+          <PipContext.Provider value={{ instance, state, isInsidePip: state.isOpen }}>
+            <Component ref={contentRef}>{children}</Component>
+          </PipContext.Provider>
+        </SwitchingPortal>
       </OriginComponent>
     </PipContext.Provider>
   );

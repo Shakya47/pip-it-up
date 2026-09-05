@@ -1,3 +1,22 @@
+/**
+ * Clones every `link[rel="stylesheet"]` and `style` from the opener into the PiP document.
+ *
+ * REQUIRED: without this the PiP window renders unstyled. It cannot be disabled without
+ * breaking core functionality (MAINTENANCE_GUIDE Section 6).
+ *
+ * Consequence 1 — external CSS is fetched TWICE, once per document. For an authenticated or
+ * private-CDN stylesheet the PiP fetch may fail silently, producing an unstyled PiP window
+ * with no error. Workaround: `copyStyles: 'once'` plus pre-inlined critical CSS.
+ *
+ * Consequence 2 — cloned `style` text is replicated verbatim. Any attacker-influenced CSS in
+ * the opener reaches the PiP document too. That is an opener-side problem, but style sync
+ * widens its blast radius to a second document.
+ *
+ * The head MutationObserver watches `subtree: true, characterData: true` so every CSS-in-JS
+ * rule append is replicated; that is intentional and load-bearing for Tailwind and Emotion.
+ * The requestAnimationFrame batching in scheduleTextUpdate is what keeps it cheap. Do not
+ * remove the batching.
+ */
 export const copyStylesOnce = (pipWindow: Window) => {
   const pipDoc = pipWindow.document;
   const openerDoc = window.document;
@@ -21,6 +40,8 @@ const syncAttrs = (source: HTMLElement, target: HTMLElement) => {
   }
 };
 
+// See copyStylesOnce JSDoc above for style copying invariants, Consequence 1 (fetch twice), and Consequence 2 (CSS replication).
+// packages/core/src/styles.ts — observers are not listeners; signature unchanged (DEF-401 §2, §4.8).
 export const startStylesSync = (pipWindow: Window): (() => void) => {
   const pipDoc = pipWindow.document;
   const openerDoc = window.document;
@@ -127,6 +148,7 @@ export const startStylesSync = (pipWindow: Window): (() => void) => {
   attrObserver.observe(openerDoc.body, { attributes: true });
 
   return () => {
+    // Leak vector L12: both observers and the pending-update map must be released.
     headObserver.disconnect();
     attrObserver.disconnect();
     if (pendingRafId !== null) {

@@ -123,6 +123,12 @@ function App() {
         </div>
         <div className="flex items-center gap-3">
           <a
+            href="#/dashboard"
+            className="px-3.5 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium shadow-sm transition-colors whitespace-nowrap"
+          >
+            Route-Persistent PiP →
+          </a>
+          <a
             href="https://codesandbox.io/p/sandbox/pip-it-up-test-xfng5n"
             target="_blank"
             rel="noopener noreferrer"
@@ -140,7 +146,7 @@ function App() {
       <DemoCard
         id="basic-demo"
         title="1. TipTap Editor"
-        description="Portals preserve React state, but complex editors need a re-mount on window change."
+        description="The editor DOM node moves between windows without unmounting, so React state, cursor and selection all survive."
         file="examples/playground/src/demos/BasicDemo.tsx"
       >
         <BasicDemo />
@@ -149,7 +155,7 @@ function App() {
       <DemoCard
         id="monaco-demo"
         title="2. Monaco Editor"
-        description="Uses controlled value and explicit layout calls to persist code editor state across windows."
+        description="No relayout workaround needed. The editor keeps its model, scroll position and undo history across the move."
         file="examples/playground/src/demos/MonacoDemo.tsx"
       >
         <MonacoDemo />
@@ -211,8 +217,8 @@ function App() {
 
       <DemoCard
         id="video-demo"
-        title="9. Video Player Continuity"
-        description="Start playback. Open Picture-in-Picture. The video moves to the PiP window and continues playing seamlessly."
+        title="9. Native Video PiP (video-only)"
+        description="Pops out ONLY the video, YouTube-style, using the classic Video PiP API. Also demonstrates why auto-PiP on tab switch cannot be done from a web page."
         file="examples/playground/src/demos/VideoDemo.tsx"
       >
         <VideoDemo />
@@ -221,7 +227,7 @@ function App() {
       <DemoCard
         id="audio-demo"
         title="10. Audio Stream Continuity"
-        description="Start playback. Toggle Picture-in-Picture. The audio stream moves to the PiP window and continues playing seamlessly."
+        description="Audio has no native PiP API, so this uses Document PiP to float real DOM — artwork and controls included — with the stream never interrupted."
         file="examples/playground/src/demos/AudioDemo.tsx"
       >
         <AudioDemo />
@@ -253,6 +259,7 @@ function App() {
       >
         <BuildProgressDemo />
       </DemoCard>
+
     </div>
   )
 }
