@@ -13,7 +13,7 @@
   "dependencies": {
     "@pip-it-up/core": "workspace:*",
     "@pip-it-up/react": "workspace:*",
-    "react": "^19.2.6",
+    "react": "^19.2.8",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
@@ -27,7 +27,7 @@
     "@storybook/react-vite": "^10.3.6",
     "@storybook/test": "^8.6.15",
     "@types/node": "^24.12.3",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/browser": "^1.6.0",
