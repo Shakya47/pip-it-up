@@ -30,7 +30,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/browser": "^1.6.0",
+    "@vitest/browser": "^4.1.11",
     "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
