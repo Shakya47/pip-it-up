@@ -2,30 +2,25 @@ import { describe, it, expect, vi } from 'vitest';
 import { attachFixedSizeGuard } from '../src/fixed-size';
 
 describe('fixed-size guard', () => {
-  it('should call resizeTo on window resize', () => {
-    const mockWindow: any = {
-      innerWidth: 100,
-      innerHeight: 100,
-      resizeTo: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      document: {
-        documentElement: { style: {} },
-        body: { style: {} }
-      }
-    };
+  const makeWindow = () => ({
+    resizeTo: vi.fn(),
+    addEventListener: vi.fn(),
+    document: { documentElement: { style: {} as Record<string, string> }, body: { style: {} as Record<string, string> } },
+  });
 
-    const cleanup = attachFixedSizeGuard(mockWindow, 500, 400);
-    expect(mockWindow.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
+  it('locks html and body to the size with overflow hidden', () => {
+    const win = makeWindow();
+    attachFixedSizeGuard(win as unknown as Window, 500, 400);
 
-    const resizeHandler = mockWindow.addEventListener.mock.calls[0][1];
-    
-    mockWindow.innerWidth = 800;
-    resizeHandler();
+    expect(win.document.documentElement.style).toMatchObject({ width: '500px', height: '400px', overflow: 'hidden' });
+    expect(win.document.body.style).toMatchObject({ width: '500px', height: '400px', overflow: 'hidden', margin: '0' });
+  });
 
-    expect(mockWindow.resizeTo).toHaveBeenCalledWith(500, 400);
+  it('never tries to resize the window back (resizeTo needs a user gesture and sets the outer size)', () => {
+    const win = makeWindow();
+    attachFixedSizeGuard(win as unknown as Window, 500, 400);
 
-    cleanup();
-    expect(mockWindow.removeEventListener).toHaveBeenCalledWith('resize', resizeHandler);
+    expect(win.addEventListener).not.toHaveBeenCalled();
+    expect(win.resizeTo).not.toHaveBeenCalled();
   });
 });
