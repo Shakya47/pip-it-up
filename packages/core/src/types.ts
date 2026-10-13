@@ -77,15 +77,46 @@ export interface PipOptions {
 
 export interface PipState {
   isOpen: boolean;
+  /**
+   * Will `open()` actually do something for THIS instance, in this browser? Not a browser-level
+   * capability flag (use `isSupported()` for that). `true` when Document Picture-in-Picture is
+   * available (and `forceFallback` is off), when the automatic video fallback applies (the content
+   * holds exactly one `<video>`, `disableVideoPip` is off, and a video PiP API exists), or when a
+   * usable `fallback` is configured: a function, or `'new-tab'` with a valid http(s) `fallbackUrl`.
+   * Recomputed on every `setDefaultElements` / element registration and on `updateOptions`.
+   */
   isSupported: boolean;
   pipWindow: Window | null;
 }
+
+/**
+ * `code` on the errors core itself rejects `open()` with. Errors raised by the browser (for
+ * example `NotAllowedError` without a user gesture) or thrown by your callbacks pass through
+ * unchanged and carry no `code`.
+ *
+ * - `ERR_OPEN_ABORTED` — `close()` or `destroy()` ran while `open()` was still pending
+ *   (`onBeforeOpen`, `requestWindow`, or the video PiP request). Any window that arrives late is
+ *   closed. `name` is `'AbortError'`; `onError` is NOT called, because the caller asked for it.
+ * - `ERR_WINDOW_CLOSED` — the PiP window was already closed when `requestWindow` resolved.
+ * - `ERR_INVALID_FALLBACK` — `fallback: 'new-tab'` with a missing or disallowed `fallbackUrl`.
+ */
+export type PipOpenErrorCode = 'ERR_OPEN_ABORTED' | 'ERR_WINDOW_CLOSED' | 'ERR_INVALID_FALLBACK';
 
 /** Called synchronously at the top of `close()`, before `pipWindow.close()` and before `cleanup()`. */
 export type PipTeardownHook = (pipWindow: Window | null) => void;
 
 export interface PipInstance {
   id: string;
+  /**
+   * Opens the PiP window (or the configured fallback). Rejects on failure, after reporting the
+   * error to `onError` (except `ERR_OPEN_ABORTED`, see `PipOpenErrorCode`). Resolves without
+   * opening when already open or opening, when `onBeforeOpen` returns `false`, and when nothing
+   * can open and `fallback` is `'none'` (`state.isSupported` is `false` in that case).
+   *
+   * `elements` overrides the default slots for this session only: `originEl` given here is where
+   * move mode restores the content on close. With no origin at all, the content goes back to the
+   * parent it had when the window opened.
+   */
   open: (elements?: { contentEl?: HTMLElement; originEl?: HTMLElement }) => Promise<void>;
   close: () => void;
   toggle: (elements?: { contentEl?: HTMLElement; originEl?: HTMLElement }) => Promise<void>;
