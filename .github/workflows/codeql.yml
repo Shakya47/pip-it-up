@@ -1,9 +1,9 @@
 name: CodeQL
 
+# Not on pull_request: every Dependabot PR re-ran it on each rebase. Code reaches main through a
+# PR, so the push to main scans every change once; the weekly run picks up new queries.
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
   schedule:
     # Weekly, so newly published queries run against unchanged code.

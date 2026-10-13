@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 .turbo/
+*.tsbuildinfo
 
 # Specs (Requested)
 specs/
@@ -27,7 +28,9 @@ coverage/
 
 # IDE files
 .vscode/
-.claude/
+# Claude Code: local state stays ignored; project skills are committed (same content as .agents/skills/)
+.claude/*
+!.claude/skills/
 
 # Local tarballs for testing against other projects (never published)
 .local-pack/

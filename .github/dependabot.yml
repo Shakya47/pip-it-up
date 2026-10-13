@@ -1,63 +1,37 @@
 version: 2
 updates:
-  # --- npm: one entry per workspace, matching pnpm-workspace.yaml ---
+  # --- npm: ONE entry for the whole pnpm workspace (one lockfile), so a dependency used in several
+  # packages is bumped in one PR, not one PR per folder. Monthly, everything in a single grouped PR.
+  # Major versions are skipped: they need hand work (TypeScript, Vitest, React majors break the build).
+  # Security fixes are separate ("Dependabot security updates" in the repo settings) and still come
+  # as soon as an advisory is published; they are grouped into one PR too.
   - package-ecosystem: "npm"
-    directory: "/"
-    schedule: { interval: "weekly" }
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "chore(deps):" }
-    groups:
-      minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-
-  - package-ecosystem: "npm"
-    directory: "/packages/core"
-    schedule: { interval: "weekly" }
-    open-pull-requests-limit: 5
+    directories:
+      - "/"
+      - "/packages/*"
+      - "/apps/*"
+      - "/examples/*"
+    schedule: { interval: "monthly" }
+    open-pull-requests-limit: 2
     commit-message: { prefix: "chore(deps):" }
     ignore:
       - dependency-name: "@pip-it-up/*"
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      minor-and-patch:
+      dependencies:
+        applies-to: version-updates
         patterns: ["*"]
-        update-types: ["minor", "patch"]
-
-  - package-ecosystem: "npm"
-    directory: "/packages/react"
-    schedule: { interval: "weekly" }
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "chore(deps):" }
-    ignore:
-      - dependency-name: "@pip-it-up/*"
-    groups:
-      minor-and-patch:
+      security:
+        applies-to: security-updates
         patterns: ["*"]
-        update-types: ["minor", "patch"]
 
-  - package-ecosystem: "npm"
-    directory: "/apps/storybook"
-    schedule: { interval: "weekly" }
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "chore(deps):" }
-    groups:
-      minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-
-  - package-ecosystem: "npm"
-    directory: "/examples/playground"
-    schedule: { interval: "weekly" }
-    open-pull-requests-limit: 5
-    commit-message: { prefix: "chore(deps):" }
-    groups:
-      minor-and-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-
-  # --- GitHub Actions: keeps the CI-501 SHA pins current ---
+  # --- GitHub Actions: keeps the CI-501 SHA pins current, one grouped PR a month ---
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule: { interval: "weekly" }
-    open-pull-requests-limit: 5
+    schedule: { interval: "monthly" }
+    open-pull-requests-limit: 1
     commit-message: { prefix: "chore(deps):" }
+    groups:
+      actions:
+        patterns: ["*"]
