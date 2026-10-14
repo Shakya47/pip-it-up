@@ -20,6 +20,16 @@ const markBridged = (event: Event): void => {
  *
  * Non-enumerable so it cannot break consumer code that spreads or serialises the event.
  */
+const MOUSE_FIELDS = [
+  'screenX', 'screenY', 'clientX', 'clientY',
+  'ctrlKey', 'shiftKey', 'altKey', 'metaKey', 'button', 'buttons',
+] as const;
+const POINTER_FIELDS = [
+  'pointerId', 'width', 'height', 'pressure', 'tangentialPressure',
+  'tiltX', 'tiltY', 'twist', 'pointerType', 'isPrimary',
+  ...MOUSE_FIELDS,
+] as const;
+
 export const startPointerBridge = (
   pipWindow: Window,
   openerWindow: Window = window,
@@ -29,41 +39,23 @@ export const startPointerBridge = (
     return () => {};
   }
 
+  // The fields each copy carries over (plus bubbles / cancelable / composed).
+  const initFrom = (e: MouseEvent, fields: readonly string[]) => {
+    const init: Record<string, unknown> = { bubbles: true, cancelable: true, composed: true };
+    for (const k of fields) init[k] = (e as unknown as Record<string, unknown>)[k];
+    return init;
+  };
+  const forward = (cloneEvent: Event) => {
+    markBridged(cloneEvent);
+    const target = openerWindow.document.body || openerWindow.document;
+    target.dispatchEvent(cloneEvent);
+  };
+
   const handlePointerEvent = (event: Event) => {
     const e = event as PointerEvent;
     // Security: only forward real user-initiated events.
     if (!e.isTrusted) return;
-
-    const init: PointerEventInit = {
-      pointerId: e.pointerId,
-      width: e.width,
-      height: e.height,
-      pressure: e.pressure,
-      tangentialPressure: e.tangentialPressure,
-      tiltX: e.tiltX,
-      tiltY: e.tiltY,
-      twist: e.twist,
-      pointerType: e.pointerType,
-      isPrimary: e.isPrimary,
-      screenX: e.screenX,
-      screenY: e.screenY,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey,
-      altKey: e.altKey,
-      metaKey: e.metaKey,
-      button: e.button,
-      buttons: e.buttons,
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-    };
-
-    const cloneEvent = new PointerEvent(e.type, init);
-    markBridged(cloneEvent);
-    const target = openerWindow.document.body || openerWindow.document;
-    target.dispatchEvent(cloneEvent);
+    forward(new PointerEvent(e.type, initFrom(e, POINTER_FIELDS) as PointerEventInit));
   };
 
   const handleMouseEvent = (event: Event) => {
@@ -72,27 +64,7 @@ export const startPointerBridge = (
     // PointerEvent inherits from MouseEvent, so if PointerEvent is supported
     // we only bridge PointerEvent to avoid duplicate dispatching.
     if (typeof PointerEvent !== 'undefined' && e instanceof PointerEvent) return;
-
-    const init: MouseEventInit = {
-      screenX: e.screenX,
-      screenY: e.screenY,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey,
-      altKey: e.altKey,
-      metaKey: e.metaKey,
-      button: e.button,
-      buttons: e.buttons,
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-    };
-
-    const cloneEvent = new MouseEvent(e.type, init);
-    markBridged(cloneEvent);
-    const target = openerWindow.document.body || openerWindow.document;
-    target.dispatchEvent(cloneEvent);
+    forward(new MouseEvent(e.type, initFrom(e, MOUSE_FIELDS) as MouseEventInit));
   };
 
   const pointerEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'];
