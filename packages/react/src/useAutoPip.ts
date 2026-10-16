@@ -32,7 +32,7 @@ export function useAutoPip(
   enter: () => unknown | Promise<unknown>,
   options: UseAutoPipOptions = {}
 ): void {
-  const { enabled = true, mediaSession = false, when, onResult } = options;
+  const { enabled = true, mediaSession = false, when, onResult, signal } = options;
 
   // Callers pass inline arrows, whose identity changes every render. Reading them through a ref
   // keeps the listener attached across renders instead of detaching and reattaching on each one,
@@ -54,6 +54,9 @@ export function useAutoPip(
       when: () => latest.current.when?.() ?? true,
       onResult: (result) => latest.current.onResult?.(result),
       mediaSession,
+      // Accepted by the options type (AutoPipOptions) and ignored until now: aborting it stops
+      // auto-PiP the same way it does for core's createAutoPip.
+      signal,
     });
-  }, [enabled, mediaSession]);
+  }, [enabled, mediaSession, signal]);
 }
