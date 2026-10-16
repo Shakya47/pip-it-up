@@ -1,7 +1,7 @@
 import React, { useRef, useLayoutEffect, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { PipWrapper } from '../src/PipWrapper';
 import { PipTrigger } from '../src/PipTrigger';
 import { usePipContext } from '../src/usePipContext';
@@ -1116,5 +1116,290 @@ describe('zero-remount shuttle', () => {
     }
     expect(closeErr).toBeNull();
   });
+
+  it('warns that mode="clone" is ignored and keeps portal mode (MAINTENANCE §3)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const props = { mode: 'clone' } as unknown as React.ComponentProps<typeof PipWrapper>;
+    render(<PipWrapper {...props}><div>content</div></PipWrapper>);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[PipWrapper] mode="clone" is not supported'));
+    warn.mockRestore();
+  });
+
+  it('registers the wrapped content element itself as contentEl, so auto-size follows the content (e2e SZ1)', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    render(
+      <PipWrapper id="measure-me">
+        <section data-testid="only-child">content</section>
+      </PipWrapper>
+    );
+    expect(getPip('measure-me')?.getDefaultElements().contentEl).toBe(screen.getByTestId('only-child'));
+  });
+
+  it('keeps its own wrapper as contentEl when there are several top-level children', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    render(
+      <PipWrapper id="measure-many">
+        <p data-testid="first">a</p>
+        <p>b</p>
+      </PipWrapper>
+    );
+    expect(getPip('measure-many')?.getDefaultElements().contentEl).toBe(screen.getByTestId('first').parentElement);
+  });
+
+  it('registers contentEl after SSR hydration, where the children first render in a later commit (B1)', async () => {
+    const { renderToString } = await import('react-dom/server');
+    const { hydrateRoot } = await import('react-dom/client');
+    const { getPip } = await import('@pip-it-up/core');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ui = (
+      <PipWrapper id="hydrated">
+        <section data-testid="hydrated-child">content</section>
+      </PipWrapper>
+    );
+    const container = document.createElement('div');
+    container.innerHTML = renderToString(ui);
+    document.body.appendChild(container);
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, ui);
+      });
+      const child = container.querySelector('[data-testid="hydrated-child"]');
+      expect(child).not.toBeNull();
+      expect(getPip('hydrated')?.getDefaultElements().contentEl).toBe(child);
+      // The spy silences renderToString's useLayoutEffect warnings (jsdom has a window); a
+      // hydration mismatch must still fail the test.
+      const hydrationErrors = errorSpy.mock.calls.filter((args) =>
+        args.some((a) =>
+          /hydration failed|while hydrating|during hydration|did not match|expected server html/i.test(
+            String(a instanceof Error ? a.message : a)
+          )
+        )
+      );
+      expect(hydrationErrors).toEqual([]);
+    } finally {
+      act(() => root?.unmount());
+      container.remove();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('measures its own wrapper when the single element has text beside it (B12)', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    render(
+      <PipWrapper id="measure-text">
+        Status: <b data-testid="bold">ok</b>
+      </PipWrapper>
+    );
+    expect(getPip('measure-text')?.getDefaultElements().contentEl).toBe(screen.getByTestId('bold').parentElement);
+  });
+
+  it('re-measures when a sibling <PipTrigger> renders after mount (B12)', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    render(
+      <PipWrapper id="measure-trigger">
+        <section data-testid="section">content</section>
+        <PipTrigger />
+      </PipWrapper>
+    );
+    await screen.findByRole('button', { name: '↗ Pop out' });
+    await act(async () => {}); // MutationObserver callbacks are microtasks
+    // Two top-level children now (section + trigger): measure the wrapper, not the section.
+    expect(getPip('measure-trigger')?.getDefaultElements().contentEl).toBe(screen.getByTestId('section').parentElement);
+  });
+
+  describe('without Document PiP, with video PiP (Safari)', () => {
+    let restore: () => void = () => {};
+    beforeEach(() => {
+      const w = window as unknown as Record<string, unknown>;
+      const savedPip = w.documentPictureInPicture;
+      delete w.documentPictureInPicture;
+      Object.defineProperty(document, 'pictureInPictureEnabled', { value: true, configurable: true });
+      restore = () => {
+        w.documentPictureInPicture = savedPip;
+        delete (document as unknown as Record<string, unknown>).pictureInPictureEnabled;
+      };
+    });
+    afterEach(() => restore());
+
+    function LateVideo({ nested }: { nested: boolean }) {
+      const [show, setShow] = React.useState(false);
+      useEffect(() => {
+        const t = setTimeout(() => setShow(true), 0);
+        return () => clearTimeout(t);
+      }, []);
+      if (!show) return nested ? <div data-testid="late-box" /> : null;
+      return nested ? <div data-testid="late-box"><video /></div> : <video data-testid="late-video" />;
+    }
+
+    it('a <video> a child renders later makes the wrapper supported (B2)', async () => {
+      const { getPip } = await import('@pip-it-up/core');
+      render(
+        <PipWrapper id="late-video">
+          <LateVideo nested={false} />
+        </PipWrapper>
+      );
+      expect(getPip('late-video')?.getState().isSupported).toBe(false);
+      await screen.findByTestId('late-video');
+      await act(async () => {});
+      expect(getPip('late-video')?.getState().isSupported).toBe(true);
+    });
+
+    it('a <video> added deeper inside unchanged content also refreshes isSupported (B2, core A6)', async () => {
+      const { getPip } = await import('@pip-it-up/core');
+      render(
+        <PipWrapper id="late-nested-video">
+          <LateVideo nested />
+        </PipWrapper>
+      );
+      expect(getPip('late-nested-video')?.getState().isSupported).toBe(false);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(screen.getByTestId('late-box').querySelector('video')).not.toBeNull();
+      await act(async () => {});
+      expect(getPip('late-nested-video')?.getState().isSupported).toBe(true);
+    });
+  });
+
+  it.each([
+    [undefined, '200px'],
+    [false, 'auto'],
+  ])('with reserveSpace=%s, the placeholder height is %s', async (reserveSpace, height) => {
+    const { getActiveResizeObserverController } = await import('./helpers/mockResizeObserver');
+    const { getPip } = await import('@pip-it-up/core');
+    const { container } = render(
+      <PipWrapper id="reserve-test" reserveSpace={reserveSpace} placeholder={<span data-testid="ph">PH</span>}>
+        <section>content</section>
+      </PipWrapper>
+    );
+    const content = container.querySelector('[data-pip-shuttle] > *') as HTMLElement;
+    act(() => getActiveResizeObserverController()!.emit(content, { inlineSize: 300, blockSize: 200 }));
+    await act(async () => {
+      await getPip('reserve-test')!.open();
+    });
+    const ph = screen.getByTestId('ph').parentElement as HTMLElement;
+    expect(ph.style.height).toBe(height);
+  });
+
+  it('does not log its own warning for a failed open when onError is set', async () => {
+    const { mockDocumentPictureInPicture } = await import('../../core/tests/helpers/mockDocumentPictureInPicture');
+    mockDocumentPictureInPicture({ rejectWithNotAllowed: true });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onError = vi.fn();
+    render(<PipWrapper defaultOpen onError={onError}><div>content</div></PipWrapper>);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(onError).toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('[PipWrapper]'));
+    expect(error).not.toHaveBeenCalledWith(expect.stringContaining('[PipWrapper]'), expect.anything());
+    warn.mockRestore();
+    error.mockRestore();
+  });
+
+  it('logs a failed defaultOpen when no onError is set (control for the test above)', async () => {
+    const { mockDocumentPictureInPicture } = await import('../../core/tests/helpers/mockDocumentPictureInPicture');
+    mockDocumentPictureInPicture({ rejectWithNotAllowed: true });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    render(<PipWrapper defaultOpen><div>content</div></PipWrapper>);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[PipWrapper] PiP window defaultOpen blocked'));
+    warn.mockRestore();
+  });
+
+  it('does not log an open that close() cancelled while pending (ERR_OPEN_ABORTED)', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const requestWindow = (window as unknown as { documentPictureInPicture: { requestWindow: ReturnType<typeof vi.fn> } })
+      .documentPictureInPicture.requestWindow;
+    try {
+      render(<PipWrapper id="abort-wrapper" defaultOpen><div>content</div></PipWrapper>);
+      expect(requestWindow).toHaveBeenCalledTimes(1); // pending: the mock resolves on a later tick
+      getPip('abort-wrapper')!.close();
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(getPip('abort-wrapper')!.isOpen()).toBe(false);
+      const logged = [...warn.mock.calls, ...error.mock.calls].filter((c) => String(c[0]).includes('[PipWrapper]'));
+      expect(logged).toEqual([]);
+    } finally {
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  });
 });
 
+describe('controlled open and content mutations', () => {
+  it('open going true->false while open() is pending cancels it: no window stays open', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    const dpip = (window as unknown as { documentPictureInPicture: { requestWindow: (o: unknown) => Promise<Window> } })
+      .documentPictureInPicture;
+    const real = dpip.requestWindow;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const requestWindow = vi.fn(async (o: unknown) => {
+      await gate;
+      return real(o);
+    });
+    dpip.requestWindow = requestWindow;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { rerender } = render(<PipWrapper id="controlled-pending" open={false}><div>content</div></PipWrapper>);
+      rerender(<PipWrapper id="controlled-pending" open={true}><div>content</div></PipWrapper>);
+      expect(requestWindow).toHaveBeenCalledTimes(1);
+      rerender(<PipWrapper id="controlled-pending" open={false}><div>content</div></PipWrapper>);
+      await act(async () => {
+        release();
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      const pipWindow = await requestWindow.mock.results[0].value;
+      expect(pipWindow.closed).toBe(true);
+      expect(getPip('controlled-pending')!.isOpen()).toBe(false);
+      const logged = [...warn.mock.calls, ...error.mock.calls].filter((c) => String(c[0]).includes('[PipWrapper]'));
+      expect(logged).toEqual([]);
+    } finally {
+      dpip.requestWindow = real;
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it('many content mutations before the next frame share one trailing sync', async () => {
+    const { getPip } = await import('@pip-it-up/core');
+    const frames: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb));
+    const caf = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    try {
+      render(<PipWrapper id="mutating"><div data-testid="box" /></PipWrapper>);
+      const instance = getPip('mutating')!;
+      const setDefaultElements = vi.spyOn(instance, 'setDefaultElements');
+      const box = screen.getByTestId('box');
+
+      // Ten separate MutationObserver batches, all before the next frame (Monaco-style churn).
+      for (let i = 0; i < 10; i++) {
+        box.appendChild(document.createElement('span'));
+        await act(async () => {});
+      }
+      expect(setDefaultElements).toHaveBeenCalledTimes(1); // the first batch syncs at once
+
+      await act(async () => {
+        frames.splice(0).forEach((cb) => cb(0));
+      });
+      expect(setDefaultElements).toHaveBeenCalledTimes(2); // one trailing sync for the other nine
+
+      await act(async () => {
+        frames.splice(0).forEach((cb) => cb(0));
+      });
+      expect(setDefaultElements).toHaveBeenCalledTimes(2); // quiet frame: nothing more
+    } finally {
+      raf.mockRestore();
+      caf.mockRestore();
+    }
+  });
+});
