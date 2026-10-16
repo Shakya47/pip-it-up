@@ -4,8 +4,8 @@ import React, { forwardRef, useEffect, useState, useSyncExternalStore, useContex
 import { getPip, subscribeRegistry } from '@pip-it-up/core';
 import type { PipInstance, PipState } from '@pip-it-up/core';
 import { PipContext } from './PipContext';
-import { useIsPipSupported } from './useIsPipSupported';
 import { Slot } from './Slot';
+import { hasErrorHandler, isOpenAborted } from './errors';
 
 const emptySubscribe = () => () => { };
 const emptyServerState: PipState = { isOpen: false, isSupported: false, pipWindow: null };
@@ -37,7 +37,6 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
     ...rest
   } = props;
 
-  const isSupported = useIsPipSupported();
   const context = useContext(PipContext);
 
   const registrySubscribe = React.useCallback((callback: () => void) => {
@@ -88,14 +87,25 @@ export const PipTrigger = forwardRef<HTMLElement, PipTriggerProps>((props, ref) 
     return null; // SSR safe
   }
 
-  if (!isSupported) {
+  // Per instance, not per browser: can THIS instance open anything here (Document PiP, its video
+  // fallback, or a configured fallback)? A browser with only video PiP (Safari, Firefox before
+  // Document PiP) used to count as supported, so non-video content got a button that did nothing.
+  if (!state.isSupported) {
     if (renderUnsupported === null) return null;
     return <>{renderUnsupported}</>;
   }
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) onClick(e);
-    instance?.toggle();
+    // open() rejects when the browser refuses (e.g. NotAllowedError); a click handler has nowhere
+    // to send that, so catch it instead of leaving an unhandled rejection. Core has already called
+    // onError; when the owner set one, the app handles it, so don't log a second report. An open
+    // cancelled by close() while pending (ERR_OPEN_ABORTED) isn't a failure either.
+    const target = instance;
+    target?.toggle().catch((err: Error) => {
+      if (isOpenAborted(err) || hasErrorHandler(target)) return;
+      console.warn(`[PipTrigger] Could not open Picture-in-Picture: ${err?.name ?? 'Error'}`, err);
+    });
   };
 
   const isOpen = state.isOpen;
