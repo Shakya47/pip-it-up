@@ -641,7 +641,7 @@ describe('PipProvider', () => {
     expect(hostApi!.getSnapshot().level).toBe('active');
 
     act(() => {
-      window.dispatchEvent(new Event('freeze'));
+      document.dispatchEvent(new Event('freeze'));
     });
     expect(hostApi!.getSnapshot().level).toBe('frozen');
   });
@@ -659,12 +659,12 @@ describe('PipProvider', () => {
     );
 
     act(() => {
-      window.dispatchEvent(new Event('freeze'));
+      document.dispatchEvent(new Event('freeze'));
     });
     expect(hostApi!.getSnapshot().level).toBe('frozen');
 
     act(() => {
-      window.dispatchEvent(new Event('resume'));
+      document.dispatchEvent(new Event('resume'));
     });
     expect(hostApi!.getSnapshot().level).toBe('active');
   });
@@ -980,5 +980,88 @@ describe('PipProvider', () => {
       unUnknown();
       unUnknown();
     }).not.toThrow();
+  });
+
+  it('docks a server-rendered anchor after hydration (e2e SS5)', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ui = (
+      <PipProvider registry={{ a: <div>Inside Shuttle</div> }}>
+        <PipAnchor id="a" className="ssr-anchor" />
+      </PipProvider>
+    );
+    const container = document.createElement('div');
+    container.innerHTML = renderToString(ui);
+    document.body.appendChild(container);
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    try {
+      act(() => {
+        root = hydrateRoot(container, ui);
+      });
+      const shuttle = document.querySelector('[data-pip-shuttle="a"]') as HTMLElement;
+      expect(shuttle.parentElement).toBe(container.querySelector('.ssr-anchor'));
+    } finally {
+      act(() => root?.unmount());
+      container.remove();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('keeps every server-rendered anchor claim for one id: removing the second docks into the first (B5)', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const App = ({ second }: { second: boolean }) => (
+      <PipProvider registry={{ a: <div>Inside Shuttle</div> }}>
+        <PipAnchor id="a" className="first" />
+        {second ? <PipAnchor id="a" className="second" /> : null}
+      </PipProvider>
+    );
+    const container = document.createElement('div');
+    container.innerHTML = renderToString(<App second />);
+    document.body.appendChild(container);
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    try {
+      act(() => {
+        root = hydrateRoot(container, <App second />);
+      });
+      const shuttle = document.querySelector('[data-pip-shuttle="a"]') as HTMLElement;
+      expect(shuttle.parentElement).toBe(container.querySelector('.second'));
+
+      act(() => root!.render(<App second={false} />));
+
+      expect(shuttle.parentElement).toBe(container.querySelector('.first'));
+    } finally {
+      act(() => root?.unmount());
+      container.remove();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('moves the shuttle out of an unmounting anchor with moveBefore, while still connected (e2e RP10)', () => {
+    const calls: Array<{ node: Node; connected: boolean }> = [];
+    const proto = Element.prototype as unknown as { moveBefore?: (node: Node, child: Node | null) => void };
+    const saved = proto.moveBefore;
+    proto.moveBefore = function (this: Element, node: Node, child: Node | null) {
+      calls.push({ node, connected: node.isConnected });
+      this.insertBefore(node, child);
+    };
+    try {
+      const App = ({ show }: { show: boolean }) => (
+        <PipProvider registry={{ a: <div>Inside Shuttle</div> }}>
+          {show ? <PipAnchor id="a" /> : null}
+        </PipProvider>
+      );
+      const { rerender } = render(<App show />);
+      const shuttle = document.querySelector('[data-pip-shuttle="a"]') as HTMLElement;
+      calls.length = 0;
+
+      rerender(<App show={false} />);
+
+      expect(shuttle.parentElement!.hasAttribute(GARAGE_ATTR)).toBe(true);
+      expect(calls.some((c) => c.node === shuttle && c.connected)).toBe(true);
+    } finally {
+      if (saved) proto.moveBefore = saved;
+      else delete proto.moveBefore;
+    }
   });
 });
