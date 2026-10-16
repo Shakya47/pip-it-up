@@ -10,28 +10,33 @@ import { enterVideoPip, exitVideoPip } from '@pip-it-up/core';
 export function useVideoPip(ref: React.RefObject<HTMLVideoElement | null>) {
   const [isActive, setIsActive] = useState(false);
 
+  // `enter` and `leave` REJECT when the browser refuses (e.g. `NotAllowedError` without a user
+  // gesture), so callers can tell success from failure. `useAutoPip(enter)` depends on this: a
+  // resolved `enter()` is reported as `{ ok: true }`, so swallowing the error here made every
+  // blocked auto-PiP look like a success. For the same reason, entering with no <video> attached
+  // rejects: nothing entered PiP.
   const enter = useCallback(async () => {
     const video = ref.current;
-    if (!video) return;
-    try {
-      await enterVideoPip(video);
-    } catch (err) {
-      console.warn('[useVideoPip] Failed to enter PiP:', err);
+    if (!video) {
+      throw new Error('[useVideoPip] enter(): the ref is not attached to a <video> element.');
     }
+    await enterVideoPip(video);
   }, [ref]);
 
   const leave = useCallback(async () => {
     const video = ref.current;
     if (!video) return;
-    try {
-      await exitVideoPip(video);
-    } catch (err) {
-      console.warn('[useVideoPip] Failed to exit PiP:', err);
-    }
+    await exitVideoPip(video);
   }, [ref]);
 
-  const toggle = useCallback(() => {
-    return isActive ? leave() : enter();
+  // `toggle` is the UI helper (`<button onClick={toggle}>`): it never rejects, so a refused request
+  // can't surface as an unhandled rejection from an event handler. It warns instead.
+  const toggle = useCallback(async () => {
+    try {
+      await (isActive ? leave() : enter());
+    } catch (err) {
+      console.warn(`[useVideoPip] Failed to ${isActive ? 'exit' : 'enter'} PiP:`, err);
+    }
   }, [isActive, enter, leave]);
 
   useEffect(() => {
