@@ -9,5 +9,13 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["playground", "@pip-it-up/storybook"]
+  "ignore": [
+    "playground",
+    "@pip-it-up/storybook",
+    "@pip-it-up/e2e",
+    "@pip-it-up/e2e-contract",
+    "@pip-it-up/e2e-vanilla",
+    "@pip-it-up/e2e-react",
+    "@pip-it-up/e2e-next"
+  ]
 }
