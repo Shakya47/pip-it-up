@@ -1,0 +1,29 @@
+{
+  "name": "@pip-it-up/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-to-end browser tests for @pip-it-up/core and @pip-it-up/react (Playwright). Real PiP windows, real gestures, every browser.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "playwright test --debug",
+    "e2e:report": "playwright show-report",
+    "e2e:server": "node scripts/dev-server.mjs",
+    "e2e:bug-report": "node scripts/bug-report.mjs",
+    "e2e:session": "node scripts/session.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@pip-it-up/core": "workspace:*",
+    "@pip-it-up/e2e-contract": "workspace:*",
+    "@pip-it-up/react": "workspace:*",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.12.3",
+    "typescript": "^5.4.0"
+  }
+}
