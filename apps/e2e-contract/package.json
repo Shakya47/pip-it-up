@@ -1,0 +1,17 @@
+{
+  "name": "@pip-it-up/e2e-contract",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The DOM contract every e2e target implements: scenario ids, hash routes, accessible names, and the query-string → PipOptions parser. Targets and specs both import it, so labels can't drift.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@pip-it-up/core": "workspace:*",
+    "typescript": "^5.4.0"
+  }
+}
