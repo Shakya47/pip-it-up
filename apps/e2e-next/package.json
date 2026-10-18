@@ -1,0 +1,25 @@
+{
+  "name": "@pip-it-up/e2e-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "e2e target: Next.js (App Router, SSR). `/` runs the React DOM contract client-only; `/ssr` and `/ssr-persist` server-render PipWrapper and PipProvider for hydration checks.",
+  "scripts": {
+    "serve": "next dev --port 5183",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pip-it-up/core": "workspace:*",
+    "@pip-it-up/e2e-contract": "workspace:*",
+    "@pip-it-up/e2e-react": "workspace:*",
+    "@pip-it-up/react": "workspace:*",
+    "next": "^16.3.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.4.0"
+  }
+}
