@@ -16,6 +16,10 @@ export default function MonacoDemo() {
   // its model, its undo history and its scroll position are the same objects before and after.
   // `automaticLayout: true` below uses Monaco's own ResizeObserver, which keeps observing the
   // element across the document move, so the relayout happens without our help.
+  //
+  // One limit: Monaco's keyboard shortcuts (Cmd/Ctrl+Z, …) don't fire inside the PiP window, because
+  // Monaco reads focus from the main window's document. The history is intact; see
+  // docs/recipes/monaco.md for running `editor.trigger('pip', 'undo', null)` from your own control.
   return (
     <PipWrapper>
       <div className="border p-4 rounded-md shadow-sm bg-white dark:bg-gray-800 text-center">
@@ -25,7 +29,8 @@ export default function MonacoDemo() {
         </div>
         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-lg p-3 mb-3 text-left text-xs text-blue-800 dark:text-blue-300">
           <strong>Try this:</strong> type a few lines, then pop out. Your text, cursor position
-          and undo history (<kbd>Cmd/Ctrl+Z</kbd>) all survive the move.
+          and undo history all survive the move (Monaco's own shortcuts don't fire inside the
+          PiP window; press <kbd>Cmd/Ctrl+Z</kbd> after closing it).
         </div>
         <div className="h-[200px] border rounded-md overflow-hidden">
           <Editor

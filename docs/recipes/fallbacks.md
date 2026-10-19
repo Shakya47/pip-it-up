@@ -1,6 +1,6 @@
 # Fallbacks
 
-Not all browsers support the Document Picture-in-Picture API natively (e.g., Safari, Firefox). `pip-it-up` provides graceful fallbacks.
+Not every browser supports the Document Picture-in-Picture API (Chrome/Edge 116+ and Firefox 151+ do; Safari and mobile browsers don't). `pip-it-up` provides graceful fallbacks.
 
 ## Fallback Modes
 
@@ -14,8 +14,8 @@ You can control fallback behavior using the `fallback` and `fallbackUrl` props:
 
 ### Options
 
-1. **`new-tab` (Default)**: Opens a new browser tab/popup at the route specified by the `fallbackUrl` prop using `window.open(fallbackUrl, '_blank')`.
-2. **`none`**: Disables the fallback entirely. If PiP is unsupported, the `<PipTrigger>` does nothing (or you can use the `renderUnsupported` prop on the trigger to hide/replace it).
+1. **`new-tab`**: Opens `fallbackUrl` in a new tab with `window.open(url, '_blank', 'noopener,noreferrer')`. The URL is validated first: only `http:` and `https:` are allowed (relative URLs resolve against the page). With no `fallbackUrl`, or one that fails validation, the wrapper counts as unsupported and `open()` reports the error to `onError` and rejects.
+2. **`none` (default)**: Disables the fallback entirely. When nothing can open (no Document PiP, and the content isn't a single `<video>` that can use video PiP), `<PipTrigger>` renders its `renderUnsupported` content instead of a button (nothing, if you don't pass it). Opening also logs a `pip-it-up:` warning.
 
 ---
 
@@ -40,12 +40,15 @@ To use the `new-tab` fallback successfully:
 
 ## Custom Unsupported UI
 
-If you want to hide or change the trigger when PiP is unsupported (and you've set `fallback="none"`), use `renderUnsupported`:
+When nothing can open for that wrapper (no Document PiP, no single-`<video>` fallback, and `fallback` is `"none"`, the default, or `"new-tab"` without a valid `fallbackUrl`), `<PipTrigger>` shows `renderUnsupported` instead of the button:
 
 ```tsx
-<PipTrigger 
+<PipTrigger
   renderUnsupported={<span className="text-gray-500">PiP not supported on this browser</span>}
 >
-  <button>Toggle PiP</button>
+  Toggle PiP
 </PipTrigger>
 ```
+
+`<PipTrigger>` renders the `<button>` itself; its children are the label. To use your own button
+element, pass `asChild` with exactly one child: `<PipTrigger asChild><button className="btn">Toggle PiP</button></PipTrigger>`.
