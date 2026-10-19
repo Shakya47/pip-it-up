@@ -197,13 +197,19 @@ test.describe('lifecycle', () => {
     expect(await logEntries(page)).toEqual([]);
   });
 
-  test('LC13 inside an iframe (the playground\'s IframeGuard case) open() is refused: onError gets the error and no window opens @docpip', async ({ page, context }) => {
-    await page.goto(routeFor('basic'));
-    const src = page.url();
+  test('LC13 inside an iframe (the playground\'s IframeGuard case) open() is refused: onError gets the error and no window opens @docpip', async ({ page, context, baseURL }) => {
+    const target = new URL(routeFor('basic'), baseURL).href;
+    // Same-origin host page with the target in an iframe; Document PiP needs a top-level context.
+    // The host is served by this test (route fulfil), never by the target: rewriting a loaded target
+    // page with `page.setContent` while its framework is still hydrating makes React (Next) throw a
+    // hydration error and re-render the whole document, which removes the iframe again.
+    const host = new URL('/__iframe-host', baseURL).href;
+    await page.route(host, (route) =>
+      route.fulfill({ contentType: 'text/html', body: `<iframe title="embedded target" src="${target}" width="900" height="700"></iframe>` }),
+    );
     let windows = 0;
     context.on('page', () => windows++);
-    // Same-origin host page with the target in an iframe; Document PiP needs a top-level context.
-    await page.setContent(`<iframe title="embedded target" src="${src}" width="900" height="700"></iframe>`);
+    await page.goto(host);
     const frame = page.frameLocator('iframe[title="embedded target"]');
     await expect(frame.getByRole('button', { name: NAMES.open, exact: true })).toBeVisible();
 

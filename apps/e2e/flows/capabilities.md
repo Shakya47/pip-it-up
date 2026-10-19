@@ -29,6 +29,7 @@ Last run: 2026-09-27 · matrix (chrome, firefox, webkit; msedge is CI-only)
 - Every Playwright call grants transient user activation in all three engines, for about 5 s; `page.goto` doesn't (probed). See lib/activation.ts.
 - Headless and headed Chrome size PiP windows differently (headless caps them to a small virtual screen): see sizing.md.
 - Linux (CI runners) is expected to match macOS for Chrome; H.264 in Playwright's Firefox and WebKit on Linux depends on system codecs. Confirm in the first CI run.
+- The table is verified on macOS. On GitHub's Linux runners (first run, 2026-10-19) headless Firefox failed BC3 and every test that opens a Document PiP window, and WebKit failed VP7. Those two browsers run in CI on demand only; they were not investigated. Before putting them back in the automatic CI run, reproduce under Linux (Docker image `mcr.microsoft.com/playwright`) and make the declarations per-platform.
 
 ## Corrections
 

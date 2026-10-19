@@ -224,8 +224,8 @@ pnpm --filter @pip-it-up/e2e exec playwright show-trace <trace.zip>
 2. Add it to `apps/e2e/lib/targets.json` (next free port from 5184, `tests: ["contract/**/*.spec.ts"]`,
    `extensions` it implements), the `TargetName` type, and the target list in `playwright.config.ts`.
 3. Ask before: `pnpm install` (lockfile), `.changeset/config.json` ignore, `.github/dependabot.yml`,
-   `.github/workflows/e2e.yml` (add it to the PR chrome job and to that job's `pr_targets`; every
-   `full_targets`).
+   `.github/workflows/e2e.yml` (add its `<target>-chrome` project to the chrome job's `pnpm e2e`
+   filter and its name to that job's and the `browsers` job's `E2E_TARGETS`).
 4. `check parity`, and publish the parity table in the reply.
 
 ## Rules

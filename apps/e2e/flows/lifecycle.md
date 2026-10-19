@@ -37,6 +37,7 @@ Last run: 2026-09-27 · matrix (chrome, firefox, webkit; msedge is CI-only)
 - LC8: the brief's area map said "second open → onError". In Chrome the browser closes the first window instead (the spec: one PiP window per top-level traversable); the first instance sees `pagehide` and closes cleanly. The test encodes what the browser and the code do.
 - LC11: **fixed 2026-09-28:** `open()` used to call `onError` and resolve when `onError` was set (auto-pip.md AP2). It now calls onError AND rejects; the targets log `reject:<name>` only for a rejection onError never saw, so LC11's exact log `[error:NotAllowedError]` also proves onError reported it.
 - `onBeforeOpen` is awaited before `requestWindow` (createPip.ts:283-289). MAINTENANCE §1 forbids awaits between the gesture and `requestWindow`; transient activation is time-based (~5 s), so a quick onBeforeOpen passes (LC10). A slow async one (>5 s) would make the open fail with NotAllowedError. Not tested yet.
+- LC13's host page is served by the test (`page.route` + `page.goto`), not made with `page.setContent` on a loaded target page: on Next the target was still hydrating, React saw its document replaced, threw a hydration error and re-rendered the whole document, which removed the iframe (found on the first GitHub run, 2026-10-19; it passed on a fast Mac by timing).
 
 ## Corrections
 

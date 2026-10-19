@@ -63,9 +63,11 @@ Set `E2E_SKIP_BUILD=1` to skip that build (e.g. while `pnpm --filter "./packages
 - **Known bugs** (`lib/known-bugs.ts`): app bugs the suite found. Locally they fail; in CI they run as
   expected failures, so CI goes red on a new failure or when a listed bug gets fixed.
 - **Flows** (`flows/*.md`): one scenario table per area with per-project statuses, notes and possible bugs.
-- **CI** (`.github/workflows/e2e.yml`): on PRs, vanilla in every browser plus react, playground and
-  packaging in Chrome; on `main` and on demand (Actions → E2E → Run workflow), the full matrix. Reports and traces are
-  uploaded when a job fails.
+- **CI** (`.github/workflows/e2e.yml`): on PRs and on pushes to `main`, Chrome only (vanilla, react, next,
+  playground and packaging). The other browsers (Edge, Firefox, WebKit), the packed-tarball test and real
+  Safari run on demand only (Actions → E2E → Run workflow). The cross-browser check is `pnpm e2e` on a Mac
+  (Chrome, Firefox, WebKit) plus `node apps/e2e/scripts/safari.mjs`. Reports and traces are uploaded when a
+  job fails.
 
 ```ts
 import { test, expect } from '../../lib/fixtures';
