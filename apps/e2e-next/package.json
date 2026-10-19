@@ -12,7 +12,7 @@
     "@pip-it-up/e2e-contract": "workspace:*",
     "@pip-it-up/e2e-react": "workspace:*",
     "@pip-it-up/react": "workspace:*",
-    "next": "^16.3.6",
+    "next": "^16.3.8",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
