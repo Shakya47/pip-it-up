@@ -23,6 +23,16 @@ export const applyMoveMode = (
 ): (() => void) => {
   const { getOriginEl, reserveSpace, getFallbackParent } = deps;
 
+  // Reservation writes inline sizes on the origin and the content while the content is away. The
+  // values that were there before are saved and put back on close, so an inline size the app set
+  // itself survives the round trip (it used to be reset to '', and the next open measured a
+  // different box). Restored on the SAME origin element that was written to.
+  const ORIGIN_PROPS = ['minWidth', 'minHeight', 'width', 'height'] as const;
+  const CONTENT_PROPS = ['width', 'height'] as const;
+  let reservedOrigin: HTMLElement | undefined;
+  let savedOrigin: Record<string, string> = {};
+  let savedContent: Record<string, string> = {};
+
   if (reserveSpace) {
     const rect = contentEl.getBoundingClientRect();
     let origin: HTMLElement | undefined;
@@ -32,11 +42,14 @@ export const applyMoveMode = (
       origin = undefined;
     }
     if (isUsable(origin)) {
+      reservedOrigin = origin;
+      savedOrigin = Object.fromEntries(ORIGIN_PROPS.map((p) => [p, origin!.style[p]]));
       origin.style.minWidth = `${rect.width}px`;
       origin.style.minHeight = `${rect.height}px`;
       origin.style.width = `${rect.width}px`;
       origin.style.height = `${rect.height}px`;
     }
+    savedContent = Object.fromEntries(CONTENT_PROPS.map((p) => [p, contentEl.style[p]]));
     contentEl.style.width = `${rect.width}px`;
     contentEl.style.height = `${rect.height}px`;
   }
@@ -52,14 +65,10 @@ export const applyMoveMode = (
     }
 
     if (reserveSpace) {
-      if (isUsable(origin)) {
-        origin.style.minWidth = '';
-        origin.style.minHeight = '';
-        origin.style.width = '';
-        origin.style.height = '';
+      if (reservedOrigin && isUsable(reservedOrigin)) {
+        for (const p of ORIGIN_PROPS) reservedOrigin.style[p] = savedOrigin[p] ?? '';
       }
-      contentEl.style.width = '';
-      contentEl.style.height = '';
+      for (const p of CONTENT_PROPS) contentEl.style[p] = savedContent[p] ?? '';
     }
 
     if (isUsable(origin)) {

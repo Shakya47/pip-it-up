@@ -23,7 +23,7 @@ import {
 import { SwitchingPortal, createShuttle } from './SwitchingPortal';
 import { getGarage, moveHost } from './garage';
 import { PipContext } from './PipContext';
-import { warnPip, isDevEnv } from './errors';
+import { warnPip, isDevEnv, setErrorHandledProbe } from './errors';
 import { GC_GRACE_MS, GC_RECHECK_MS } from './constants';
 
 export interface PipProviderProps {
@@ -380,6 +380,9 @@ export function PipProvider(props: PipProviderProps): ReactNode {
       if (entries.has(id)) continue;
       const shuttle = createShuttle(id);
       const instance = createPip({ ...(options?.[id] ?? {}), id, mode: 'portal' });
+      // Options are read once, here; <PipTrigger pipId> skips its warning when onError is set.
+      const handlesErrors = !!options?.[id]?.onError;
+      setErrorHandledProbe(instance, () => handlesErrors);
       const placementListeners = new Set<() => void>();
       const entry: PipEntry = {
         id,
@@ -412,12 +415,34 @@ export function PipProvider(props: PipProviderProps): ReactNode {
     }
   }
 
+  // Anchors that claimed before their entry existed. During hydration the client gate is still
+  // false, so no entries exist yet, and an anchor's ref callback runs in that same commit. Without
+  // this, the claim was dropped and a server-rendered anchor never docked (e2e SS5). Flushed by the
+  // layout effect below once the entries exist, in claim order. A list per id: two server-rendered
+  // anchors for one id both claim here, and keeping only the last dropped the first one's claim.
+  const pendingClaimsRef = useRef<Map<string, HTMLElement[]> | null>(null);
+  if (!pendingClaimsRef.current) pendingClaimsRef.current = new Map();
+  const pendingClaims = pendingClaimsRef.current;
+
   // 4.3 Stable PipTeleportApi — built once with useRef, never useMemo
   const apiRef = useRef<PipTeleportApi | null>(null);
   if (!apiRef.current) {
     const claimAnchor = (id: string, node: HTMLElement): void => {
       const entry = entries.get(id);
-      if (!entry) return;
+      if (!entry) {
+        const waiting = pendingClaims.get(id);
+        if (!waiting) pendingClaims.set(id, [node]);
+        else if (!waiting.includes(node)) waiting.push(node);
+        return;
+      }
+      // Earlier claims still queued for this id go first, so the newest claim still wins.
+      const queued = pendingClaims.get(id);
+      if (queued) {
+        pendingClaims.delete(id);
+        for (const earlier of queued) {
+          if (earlier !== node && earlier.isConnected) claimAnchor(id, earlier);
+        }
+      }
       entry.claims.add(node);
       entry.anchorEl = node;
       entry.originRegistrations.set(
@@ -445,6 +470,12 @@ export function PipProvider(props: PipProviderProps): ReactNode {
     };
 
     const releaseAnchor = (id: string, node: HTMLElement | null): void => {
+      const queued = node ? pendingClaims.get(id) : undefined;
+      if (queued) {
+        const rest = queued.filter((n) => n !== node);
+        if (rest.length > 0) pendingClaims.set(id, rest);
+        else pendingClaims.delete(id);
+      }
       const entry = entries.get(id);
       if (!entry || !node) return;
       entry.claims.delete(node);
@@ -453,6 +484,14 @@ export function PipProvider(props: PipProviderProps): ReactNode {
       if (entry.anchorEl !== node) return;
       const remaining = Array.from(entry.claims);
       entry.anchorEl = remaining.length > 0 ? remaining[remaining.length - 1] : null;
+      // This runs from the anchor's ref cleanup, BEFORE React removes the anchor's DOM. Move the
+      // shuttle out now, while it is still connected, so moveHost can use moveBefore (state-
+      // preserving: iframes don't reload, media isn't paused by removal, focus survives). Left in
+      // place, it was detached together with the anchor and re-inserted later with appendChild
+      // (e2e RP10). MAINTENANCE_GUIDE §9, §11.
+      if (!entry.instance.isOpen() && node.contains(entry.shuttle)) {
+        moveHost(entry.shuttle, entry.anchorEl ?? getGarage());
+      }
       setPlacement(
         entry,
         entry.instance.isOpen() ? 'pip' : (entry.anchorEl ? 'anchor' : 'garage')
@@ -504,6 +543,19 @@ export function PipProvider(props: PipProviderProps): ReactNode {
     };
   }
 
+  // Apply claims that arrived before their entries existed (see pendingClaims). Runs after every
+  // commit; a no-op while the map is empty.
+  useIsomorphicLayoutEffect(() => {
+    if (pendingClaims.size === 0) return;
+    for (const [id, nodes] of Array.from(pendingClaims)) {
+      if (!entries.has(id)) continue;
+      pendingClaims.delete(id);
+      for (const node of nodes) {
+        if (node.isConnected) apiRef.current?.claimAnchor(id, node);
+      }
+    }
+  });
+
   // 4.12 Visibility and Page Lifecycle wiring
   useEffect(() => {
     const controller = new AbortController();
@@ -514,15 +566,18 @@ export function PipProvider(props: PipProviderProps): ReactNode {
     };
     document.addEventListener('visibilitychange', onDocVisibility, { signal });
 
+    // Page Lifecycle `freeze`/`resume` are fired at the DOCUMENT and do not bubble (spec: onfreeze
+    // and onresume live on Document; Chromium dispatches Event::Create at the document). A
+    // non-capture listener on `window` never receives them.
     const onFreeze = () => {
       store.setGlobalFrozen(true);
     };
-    window.addEventListener('freeze', onFreeze, { signal });
+    document.addEventListener('freeze', onFreeze, { signal });
 
     const onResume = () => {
       store.setGlobalFrozen(false);
     };
-    window.addEventListener('resume', onResume, { signal });
+    document.addEventListener('resume', onResume, { signal });
 
     return () => {
       controller.abort();

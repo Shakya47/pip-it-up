@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { copyStylesOnce, startStylesSync } from '../src/styles';
 
 describe('styles', () => {
@@ -39,21 +39,18 @@ describe('styles', () => {
     style.textContent = 'p { margin: 0; }';
     document.head.appendChild(style);
 
-    // Wait for mutation observer
-    await new Promise(r => setTimeout(r, 10));
-    expect(pipWindow.document.head.innerHTML).toContain('margin: 0');
+    // Poll for the mutation observer instead of a fixed wait (fixed waits flake under load)
+    await vi.waitFor(() => expect(pipWindow.document.head.innerHTML).toContain('margin: 0'));
     
     // Change style text via nodeValue to trigger characterData mutation
     if (style.firstChild) {
       style.firstChild.nodeValue = 'p { margin: 10px; }';
     }
-    await new Promise(r => setTimeout(r, 50));
-    expect(pipWindow.document.head.innerHTML).toContain('margin: 10px');
+    await vi.waitFor(() => expect(pipWindow.document.head.innerHTML).toContain('margin: 10px'));
     
     // Remove style
     document.head.removeChild(style);
-    await new Promise(r => setTimeout(r, 10));
-    expect(pipWindow.document.head.innerHTML).not.toContain('margin: 10px');
+    await vi.waitFor(() => expect(pipWindow.document.head.innerHTML).not.toContain('margin: 10px'));
     
     cleanup();
   });
@@ -62,17 +59,14 @@ describe('styles', () => {
     const cleanup = startStylesSync(pipWindow);
     
     document.documentElement.setAttribute('data-theme', 'dark');
-    await new Promise(r => setTimeout(r, 10));
-    expect(pipWindow.document.documentElement.getAttribute('data-theme')).toBe('dark');
+    await vi.waitFor(() => expect(pipWindow.document.documentElement.getAttribute('data-theme')).toBe('dark'));
     
     document.body.removeAttribute('data-theme'); // initially not set, just to test remove
     document.body.setAttribute('data-theme', 'light');
-    await new Promise(r => setTimeout(r, 10));
-    expect(pipWindow.document.body.getAttribute('data-theme')).toBe('light');
+    await vi.waitFor(() => expect(pipWindow.document.body.getAttribute('data-theme')).toBe('light'));
 
     document.documentElement.removeAttribute('data-theme');
-    await new Promise(r => setTimeout(r, 10));
-    expect(pipWindow.document.documentElement.getAttribute('data-theme')).toBeNull();
+    await vi.waitFor(() => expect(pipWindow.document.documentElement.getAttribute('data-theme')).toBeNull());
 
     cleanup();
   });

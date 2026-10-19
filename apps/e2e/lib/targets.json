@@ -1,0 +1,6 @@
+{
+  "playground": {"dir": "examples/playground", "port": 5173, "tests": ["playground/**/*.spec.ts"], "extensions": []},
+  "vanilla": {"dir": "apps/e2e-vanilla", "port": 5181, "tests": ["contract/**/*.spec.ts", "capabilities.spec.ts"], "extensions": []},
+  "react": {"dir": "apps/e2e-react", "port": 5182, "tests": ["contract/**/*.spec.ts", "react/**/*.spec.ts"], "extensions": ["persist"]},
+  "next": {"dir": "apps/e2e-next", "port": 5183, "server": "next", "tests": ["contract/**/*.spec.ts", "ssr/**/*.spec.ts"], "extensions": []}
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@pip-it-up/e2e-vanilla",
+  "version": "0.0.0",
+  "private": true,
+  "description": "e2e reference target: the DOM contract implemented with createPip() from @pip-it-up/core, no framework.",
+  "type": "module",
+  "scripts": {
+    "serve": "vite --port 5181 --strictPort",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pip-it-up/core": "workspace:*",
+    "@pip-it-up/e2e-contract": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^8.0.12"
+  }
+}

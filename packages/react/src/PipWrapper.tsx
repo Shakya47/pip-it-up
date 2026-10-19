@@ -12,11 +12,13 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { useIsomorphicLayoutEffect } from './useIsomorphicLayoutEffect';
+import { useElementSync } from './useElementSync';
 import { createPip, registerPip, unregisterPip } from '@pip-it-up/core';
 import type { PipOptions, PipInstance, PipState } from '@pip-it-up/core';
 import { PipContext } from './PipContext';
 import { SwitchingPortal } from './SwitchingPortal';
 import { getGarage, moveHost } from './garage';
+import { setErrorHandledProbe, isOpenAborted } from './errors';
 
 export interface PipWrapperProps extends Omit<PipOptions, 'mode'> {
   open?: boolean;
@@ -48,6 +50,23 @@ const SR_ONLY_STYLE: React.CSSProperties = {
   clip: 'rect(0,0,0,0)',
   whiteSpace: 'nowrap',
   border: '0',
+};
+
+/**
+ * The element core measures to auto-size the window (no width/height given): the wrapped content's
+ * own box when it is a single element, like PipProvider's `resolveContentEl`. PipWrapper's own
+ * `<Component>` is a block box as wide as the page column, so measuring it sized every window to
+ * the column instead of the content. Several top-level children keep the wrapper (their union).
+ */
+const measurableContent = (el: HTMLElement | null): HTMLElement | undefined => {
+  if (!el) return undefined;
+  const only = el.childElementCount === 1 ? el.firstElementChild : null;
+  if (!(only instanceof HTMLElement)) return el;
+  // Text beside the element (`Status: <b>ok</b>`) is part of the content: measure the wrapper.
+  for (const node of Array.from(el.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) return el;
+  }
+  return only;
 };
 
 /** Focus the first focusable descendant, or the container itself as a fallback. */
@@ -104,12 +123,40 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
 
   const instance = instanceRef.current!;
 
+  // MAINTENANCE_GUIDE §3: PipWrapper always renders through a portal (the same DOM node moves).
+  // `mode` isn't in PipWrapperProps, but a JS caller can still pass it; say it's ignored.
+  const requestedMode = (coreOptions as { mode?: string }).mode;
+  useEffect(() => {
+    if (requestedMode && requestedMode !== 'portal') {
+      console.warn(
+        `[PipWrapper] mode="${requestedMode}" is not supported and is ignored: <PipWrapper> always uses portal mode (the same DOM node moves). Use createPip() from @pip-it-up/core for clone mode.`
+      );
+    }
+  }, [requestedMode]);
+
+  // Register the content with core (MAINTENANCE_GUIDE §4, §8). useElementSync re-runs this after
+  // every commit and whenever the content's DOM changes (a later <video>, a sibling <PipTrigger>
+  // that renders once mounted), so what core measures and counts toward isSupported stays current.
+  const resyncElements = useElementSync(
+    () => contentRef.current,
+    () => {
+      instance.setDefaultElements({
+        contentEl: measurableContent(contentRef.current),
+        originEl: originEl || undefined,
+      });
+    }
+  );
+
   const shuttleRef = useRef<HTMLDivElement | null>(null);
   const handleShuttleReady = useCallback((shuttle: HTMLDivElement | null) => {
     if (shuttle) {
       shuttleRef.current = shuttle;
+      // The children first render once the shuttle exists (after hydration, not in the hydration
+      // pass). Today the origin ref's state update re-renders this component in that same commit,
+      // but don't depend on it: register the content as soon as the shuttle is ready.
+      resyncElements();
     }
-  }, []);
+  }, [resyncElements]);
 
   useEffect(() => instance.registerTeardown(() => {
     const shuttle = shuttleRef.current;
@@ -167,13 +214,6 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     getServerState
   );
 
-  useIsomorphicLayoutEffect(() => {
-    instance.setDefaultElements({
-      contentEl: contentRef.current || undefined,
-      originEl: originEl || undefined,
-    });
-  }, [instance, state.isOpen, originEl]);
-
   // Sync option changes to the core instance.
   // MAINTENANCE: If new options are added to PipOptions, add them here too.
   useEffect(() => {
@@ -204,6 +244,13 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     coreOptions.onError,
   ]);
 
+  // open() rejects on failure even when onError is set (core); the effects below read this so they
+  // don't log a second report of a failure the app already handles.
+  const onErrorRef = useRef(coreOptions.onError);
+  onErrorRef.current = coreOptions.onError;
+  // ...and so does <PipTrigger> (colocated or by pipId).
+  useEffect(() => setErrorHandledProbe(instance, () => !!onErrorRef.current), [instance]);
+
   const isControlled = controlledOpen !== undefined;
   const prevOpenRef = useRef(state.isOpen);
 
@@ -233,13 +280,19 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
           }
         }
         instance.open().catch((err) => {
+          // core already reported it to onError; an open cancelled by close() while pending
+          // (ERR_OPEN_ABORTED) isn't a failure
+          if (onErrorRef.current || isOpenAborted(err)) return;
           if (err.name === 'NotAllowedError') {
             console.warn('[PipWrapper] PiP window opening blocked: requires user activation.');
           } else {
             console.error('[PipWrapper] Failed to open PiP window', err);
           }
         });
-      } else if (changedToClosed && state.isOpen) {
+      } else if (changedToClosed) {
+        // Unconditional: an open() still pending (state.isOpen not yet true) must be cancelled
+        // too, or the window arrives despite open={false}. Core rejects that open with
+        // ERR_OPEN_ABORTED, which the catch above ignores; with nothing open it is a no-op.
         instance.close();
       }
 
@@ -252,6 +305,7 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
     if (!isControlled && defaultOpen && !defaultOpenHandled.current) {
       defaultOpenHandled.current = true;
       instance.open().catch((err) => {
+        if (onErrorRef.current || isOpenAborted(err)) return; // see the controlled-open catch above
         if (err.name === 'NotAllowedError') {
           console.warn('[PipWrapper] PiP window defaultOpen blocked: requires user activation.');
         } else {
@@ -408,7 +462,11 @@ export const PipWrapper = forwardRef<HTMLElement, PipWrapperProps>((props, ref) 
       className={placeholderClassName}
       style={{
         width: coreOptions.width ? `${coreOptions.width}px` : '100%',
-        height: lastSizeRef.current.height ? `${lastSizeRef.current.height}px` : 'auto',
+        // reserveSpace={false}: the page may collapse, so the placeholder takes no reserved height.
+        height:
+          coreOptions.reserveSpace !== false && lastSizeRef.current.height
+            ? `${lastSizeRef.current.height}px`
+            : 'auto',
         display: 'inline-block',
         verticalAlign: 'top',
         boxSizing: 'border-box',

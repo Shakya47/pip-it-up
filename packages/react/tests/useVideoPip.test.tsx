@@ -128,5 +128,40 @@ describe('useVideoPip', () => {
     });
     expect(result.current.isActive).toBe(false);
   });
-});
 
+  it('enter() rejects when the browser refuses, so useAutoPip can report the failure', async () => {
+    const refusal = new DOMException('Must be handling a user gesture', 'NotAllowedError');
+    videoElement.requestPictureInPicture = vi.fn().mockRejectedValue(refusal);
+    const { result } = renderHook(() => useVideoPip(ref));
+
+    await expect(result.current.enter()).rejects.toBe(refusal);
+    expect(result.current.isActive).toBe(false);
+  });
+
+  it('leave() rejects when exiting fails', async () => {
+    const { result } = renderHook(() => useVideoPip(ref));
+    await act(async () => {
+      await result.current.enter();
+    });
+    const failure = new DOMException('exit failed', 'InvalidStateError');
+    document.exitPictureInPicture = vi.fn().mockRejectedValue(failure);
+
+    await expect(result.current.leave()).rejects.toBe(failure);
+  });
+
+  it('toggle() never rejects: a refused request is a console warning, not an unhandled rejection', async () => {
+    videoElement.requestPictureInPicture = vi.fn().mockRejectedValue(new DOMException('no', 'NotAllowedError'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderHook(() => useVideoPip(ref));
+
+    await expect(result.current.toggle()).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith('[useVideoPip] Failed to enter PiP:', expect.any(DOMException));
+  });
+
+  it('enter() rejects when the ref has no <video> attached, so useAutoPip does not report success', async () => {
+    const empty: React.RefObject<HTMLVideoElement | null> = { current: null };
+    const { result } = renderHook(() => useVideoPip(empty));
+
+    await expect(result.current.enter()).rejects.toMatchObject({ message: expect.stringContaining('[useVideoPip] enter()') });
+  });
+});

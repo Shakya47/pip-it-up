@@ -4,20 +4,16 @@
   <img src="https://raw.githubusercontent.com/Shakya47/pip-it-up/main/docs/assets/pip-it-up-github-banner.gif" alt="pip-it-up-github-banner" width="100%" />
 </p>
 
-> **Status: Active Beta** — The API is in active development and subject to change before v1.0. See the [roadmap](#roadmap) for upcoming features.
+> **Status: beta.** The API can change before v1.0. See the [roadmap](#roadmap).
 
-The ultimate toolkit for the **Document Picture-in-Picture API**. 
-
-Build highly interactive, tear-away windows for your web applications with native DOM moving, styling synchronization, and graceful fallbacks. **pip-it-up** is a framework-agnostic solution that makes it easy to open any HTML content in a floating **Picture-in-Picture** window.
+Open any part of your page (a player, an editor, a dashboard) in a floating, always-on-top window using the **Document Picture-in-Picture API**.
 
 ## Features
 
-- **Magic Auto-Sizing**: Automatically detects and matches the dimensions of your component using `ResizeObserver`. No manual width/height needed!
-- **Persistent State**: The `move` mode physically detaches your DOM element, preserving internal state, event listeners, and cursor position perfectly.
-- **Dynamic Style Sync**: Automatically mirrors CSS rules (Tailwind, CSS-in-JS) and syncs changes in real-time using `MutationObserver`.
-- **Responsive Placeholders**: Leaves a stable, responsive placeholder in your main window to prevent layout jumps.
-- **Smart Fallbacks**: Gracefully degrades to a popup window or a custom fallback UI when the API is unsupported.
-- **Framework Ready**: Official bindings for **React**, with **Vue**, **Angular**, and **Svelte** support coming soon.
+- **Keeps state**: your content is moved into the window, not re-created. Inputs, listeners and playing media carry over.
+- **Styles follow**: page CSS (Tailwind, CSS-in-JS) is copied into the window and kept in sync.
+- **No layout jumps**: a placeholder holds the space while the content is away.
+- **Fallbacks**: content with a single `<video>` uses native Video PiP where Document PiP is missing; otherwise a popup tab or your own handler.
 
 ## Quickstart
 
@@ -25,7 +21,7 @@ Build highly interactive, tear-away windows for your web applications with nativ
 npm install @pip-it-up/react @pip-it-up/core
 ```
 
-### React Example
+React:
 
 ```tsx
 import { PipWrapper, PipTrigger } from '@pip-it-up/react';
@@ -33,60 +29,72 @@ import { PipWrapper, PipTrigger } from '@pip-it-up/react';
 function App() {
   return (
     <PipWrapper>
-      <div>
-        <h1>My Floating Tool</h1>
-        <PipTrigger>
-          <button>Open Picture-in-Picture</button>
-        </PipTrigger>
-      </div>
+      <h1>My Floating Tool</h1>
+      <PipTrigger asChild>
+        <button>Open Picture-in-Picture</button>
+      </PipTrigger>
     </PipWrapper>
   );
 }
 ```
 
+Vanilla (`npm install @pip-it-up/core`):
+
+```ts
+import { createPip } from '@pip-it-up/core';
+
+const panel = document.querySelector<HTMLElement>('#panel')!;
+const button = document.querySelector<HTMLButtonElement>('#pip-button')!;
+const pip = createPip();
+button.addEventListener('click', () => {
+  pip.toggle({ contentEl: panel }).catch(console.error);
+});
+```
+
 ## Packages
 
-- [`@pip-it-up/core`](./packages/core/README.md) - The vanilla JavaScript library for the **Document Picture-in-Picture API**.
-- [`@pip-it-up/react`](./packages/react/README.md) - React components, hooks, and context for managing **Picture-in-Picture** state.
+| Package | What it is |
+| --- | --- |
+| [`@pip-it-up/core`](./packages/core/README.md) | Framework-agnostic library: options, errors, registry, native video PiP, automatic PiP. |
+| [`@pip-it-up/react`](./packages/react/README.md) | React components and hooks, including route-persistent `<PipProvider>` / `<PipAnchor>`. React 18+. |
 
-## Documentation
+## Browser support
 
-See our recipes for advanced usage:
-- [Tiptap Integration](./docs/recipes/tiptap.md)
+| Browser | Document PiP (any content) | Native Video PiP (single `<video>`) |
+| --- | --- | --- |
+| Chrome / Edge (desktop) | 116+ | Yes |
+| Firefox (desktop) | 151+ | Yes |
+| Safari (macOS, iOS) | No | Yes |
+| Mobile Chrome / Firefox | No | Varies by browser |
+
+- Where Document PiP is missing, the library falls back to native Video PiP when the content holds exactly one `<video>`, then to your `fallback` option.
+- Document PiP needs a secure context (HTTPS or localhost) and a user gesture to open.
+- Tested end to end in Chrome, Firefox, WebKit and Safari ([`apps/e2e`](./apps/e2e)).
+- **Node**: `engines` (`>=20`) applies to building and tooling only. The published bundles run in the browser.
+
+## Recipes
+
+- [Tiptap](./docs/recipes/tiptap.md)
 - [Monaco Editor](./docs/recipes/monaco.md)
 - [Tailwind CSS](./docs/recipes/tailwind.md)
-- [Next.js SSR](./docs/recipes/nextjs.md)
+- [Next.js (SSR)](./docs/recipes/nextjs.md)
 - [Fallbacks](./docs/recipes/fallbacks.md)
-- [Keyboard Shortcuts](./docs/recipes/keyboard-shortcuts.md)
-- [Chrome Extension](./docs/recipes/chrome-extension.md)
+- [Keyboard shortcuts](./docs/recipes/keyboard-shortcuts.md)
+- [Chrome extension](./docs/recipes/chrome-extension.md)
 
-## Browser Support
+## Roadmap
 
-| Browser | Document Picture-in-Picture Support |
-| --- | --- |
-| Google Chrome | >= 116 (macOS, Windows, ChromeOS, Linux) |
-| Microsoft Edge | >= 116 |
-| Safari | Unsupported (uses Fallbacks) |
-| Firefox | Unsupported (uses Fallbacks) |
+- [x] **Seamless video/canvas/WebRTC PiP**: the same DOM node moves into the window and back, so video keeps playing. With `<PipProvider>`, content parked between routes uses `moveBefore()` where the browser has it (Chrome, Firefox), so iframes don't reload.
+- [ ] **Vue and Svelte bindings**: `@pip-it-up/vue`, `@pip-it-up/svelte`
+- [ ] **Angular bindings**: `@pip-it-up/angular`
+- [ ] **v1.0 stable release**: locked API, full browser matrix testing
 
-> [!NOTE]
-> **Video Auto-Fallback**: On Safari and Firefox (which do not support Document PiP), if the wrapped content is a single `<video>` element, `pip-it-up` automatically falls back to use the classic **Video Picture-in-Picture API** (`video.requestPictureInPicture()`) instead. Chrome and Edge will use the fully interactive **Document Picture-in-Picture API** to float the entire container.
+Feature request? [Open an issue](https://github.com/Shakya47/pip-it-up/issues).
 
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-## Roadmap
-
-These are actively being worked on:
-
-- [ ] **Seamless video/canvas/WebRTC PiP** — DOM node identity preserved across open/close (no more video restarts)
-- [ ] **Vue and Svelte bindings** — `@pip-it-up/vue`, `@pip-it-up/svelte`
-- [ ] **Angular bindings** — `@pip-it-up/angular` support
-- [ ] **v1.0 stable release** — locked API, full browser matrix testing
-
-Have a feature request? [Open an issue](https://github.com/Shakya47/pip-it-up/issues).
-
 ## License
 
-MIT
+[MIT](./LICENSE)

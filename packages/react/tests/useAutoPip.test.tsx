@@ -42,6 +42,21 @@ describe('useAutoPip', () => {
     expect(enter).toHaveBeenCalledTimes(1);
   });
 
+  it('an aborted `signal` stops auto-PiP (it used to be ignored)', async () => {
+    const enter = vi.fn();
+    const controller = new AbortController();
+    const Harness = () => {
+      useAutoPip(enter, { signal: controller.signal });
+      return null;
+    };
+    render(<Harness />);
+
+    controller.abort();
+    await hideTab();
+
+    expect(enter).not.toHaveBeenCalled();
+  });
+
   it('does not attach while `enabled` is false, and attaches when it flips true', async () => {
     const enter = vi.fn();
     let setEnabled!: (v: boolean) => void;

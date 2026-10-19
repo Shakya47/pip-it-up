@@ -33,7 +33,15 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "changeset": "changeset",
-    "version-packages": "changeset version && pnpm install --no-frozen-lockfile"
+    "version-packages": "changeset version && pnpm install --no-frozen-lockfile",
+    "e2e:build": "turbo run build --filter=./packages/*",
+    "e2e": "pnpm --filter @pip-it-up/e2e e2e",
+    "e2e:ui": "pnpm --filter @pip-it-up/e2e e2e:ui",
+    "e2e:headed": "pnpm --filter @pip-it-up/e2e e2e:headed",
+    "e2e:report": "pnpm --filter @pip-it-up/e2e e2e:report",
+    "e2e:server": "node apps/e2e/scripts/dev-server.mjs",
+    "e2e:bug-report": "node apps/e2e/scripts/bug-report.mjs",
+    "e2e:session": "node apps/e2e/scripts/session.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

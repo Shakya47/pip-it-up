@@ -1,0 +1,8 @@
+# Run artifacts
+test-results/
+playwright-report/
+blob-report/
+
+# Bug reports and dev-server logs (traces can be large; reports are regenerated per run)
+reports/
+logs/

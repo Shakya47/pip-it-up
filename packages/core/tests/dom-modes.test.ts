@@ -19,6 +19,50 @@ describe('dom-modes', () => {
     document.body.removeChild(origin);
   });
 
+  it('move mode puts back the inline sizes the app had set, instead of clearing them (e2e LC6)', () => {
+    const pipWin: any = { document: { body: document.createElement('body') } };
+    const content = document.createElement('div');
+    content.style.width = '420px';
+    content.style.height = '300px';
+    content.getBoundingClientRect = () => ({ width: 420, height: 300 } as any);
+    const origin = document.createElement('div');
+    origin.style.minHeight = '50px';
+    document.body.appendChild(origin);
+    origin.appendChild(content);
+
+    const cleanup = applyMoveMode(pipWin, content, { getOriginEl: () => origin, reserveSpace: true });
+    expect(origin.style.height).toBe('300px');
+
+    cleanup();
+    expect(content.style.width).toBe('420px');
+    expect(content.style.height).toBe('300px');
+    expect(origin.style.minHeight).toBe('50px');
+    expect(origin.style.width).toBe('');
+    document.body.removeChild(origin);
+  });
+
+  it('move mode restores the origin it reserved, not a newer origin that appeared meanwhile', () => {
+    const pipWin: any = { document: { body: document.createElement('body') } };
+    const content = document.createElement('div');
+    content.getBoundingClientRect = () => ({ width: 100, height: 200 } as any);
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    second.style.width = '77px';
+    document.body.append(first, second);
+    first.appendChild(content);
+    let current = first;
+
+    const cleanup = applyMoveMode(pipWin, content, { getOriginEl: () => current, reserveSpace: true });
+    current = second;
+    cleanup();
+
+    expect(first.style.width).toBe('');
+    expect(second.style.width).toBe('77px');
+    expect(second.contains(content)).toBe(true);
+    first.remove();
+    second.remove();
+  });
+
   it('move mode reserves space', () => {
     const pipWin: any = { document: { body: document.createElement('body') } };
     const content = document.createElement('div');

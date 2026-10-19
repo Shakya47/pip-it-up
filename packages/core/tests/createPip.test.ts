@@ -63,16 +63,46 @@ describe('createPip', () => {
     expect(onPipWindowReady).toHaveBeenCalled();
   });
 
-  it('should handle requestWindow errors via onError', async () => {
+  it('should report requestWindow errors to onError AND still reject', async () => {
     const onError = vi.fn();
     const pip = createPip({ onError });
 
     const error = new Error('Not allowed');
     (window as any).documentPictureInPicture.requestWindow = vi.fn().mockRejectedValue(error);
 
-    await pip.open();
+    await expect(pip.open()).rejects.toBe(error);
     expect(onError).toHaveBeenCalledWith(error);
     expect(pip.isOpen()).toBe(false);
+  });
+
+  it('state.isSupported: with forceFallback and no fallback, open() can do nothing, so it is false', () => {
+    expect(createPip({ forceFallback: true }).getState().isSupported).toBe(false);
+    expect(createPip({ forceFallback: true, fallback: 'new-tab', fallbackUrl: '/x' }).getState().isSupported).toBe(true);
+    expect(createPip().getState().isSupported).toBe(true);
+  });
+
+  it('video fallback: an enterpictureinpicture fired after requestPictureInPicture resolved does not call onOpen again (Safari)', async () => {
+    const dpip = (window as any).documentPictureInPicture;
+    delete (window as any).documentPictureInPicture;
+    const hadEnabled = 'pictureInPictureEnabled' in document;
+    Object.defineProperty(document, 'pictureInPictureEnabled', { value: true, configurable: true });
+    const content = document.createElement('div');
+    const video = document.createElement('video');
+    video.requestPictureInPicture = vi.fn().mockResolvedValue({});
+    content.appendChild(video);
+    document.body.appendChild(content);
+    const onOpen = vi.fn();
+    const pip = createPip({ onOpen });
+
+    await pip.open({ contentEl: content });
+    video.dispatchEvent(new Event('enterpictureinpicture')); // Safari's late event
+
+    expect(pip.isOpen()).toBe(true);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    pip.destroy();
+    content.remove();
+    if (!hadEnabled) delete (document as any).pictureInPictureEnabled;
+    (window as any).documentPictureInPicture = dpip;
   });
 
   it('should throw requestWindow errors if no onError is provided', async () => {
@@ -1393,7 +1423,7 @@ describe('signal-bound listeners', () => {
     d3();
   });
 
-  it('attachFixedSizeGuard writes styles regardless of signal', () => {
+  it('attachFixedSizeGuard writes the lock styles', () => {
     const docEl = document.createElement('html');
     const bodyEl = document.createElement('body');
     const mockWin = {
@@ -1406,8 +1436,7 @@ describe('signal-bound listeners', () => {
       resizeTo: vi.fn(),
     } as unknown as Window;
 
-    const ac = new AbortController();
-    const cleanup = attachFixedSizeGuard(mockWin, 500, 400, ac.signal);
+    const cleanup = attachFixedSizeGuard(mockWin, 500, 400);
 
     expect(docEl.style.width).toBe('500px');
     expect(docEl.style.height).toBe('400px');
@@ -1421,3 +1450,477 @@ describe('signal-bound listeners', () => {
   });
 });
 
+
+/** Runs `fn` with Document PiP absent and the classic video PiP API present (Safari's shape). */
+const withVideoPipOnly = async (fn: () => Promise<void>) => {
+  const dpip = (window as any).documentPictureInPicture;
+  delete (window as any).documentPictureInPicture;
+  const hadEnabled = 'pictureInPictureEnabled' in document;
+  Object.defineProperty(document, 'pictureInPictureEnabled', { value: true, configurable: true });
+  try {
+    await fn();
+  } finally {
+    if (!hadEnabled) delete (document as any).pictureInPictureEnabled;
+    (window as any).documentPictureInPicture = dpip;
+  }
+};
+
+const videoContent = (request: () => Promise<unknown>) => {
+  const content = document.createElement('div');
+  const video = document.createElement('video');
+  video.requestPictureInPicture = vi.fn(request) as any;
+  content.appendChild(video);
+  document.body.appendChild(content);
+  return { content, video };
+};
+
+const deferred = <T,>() => {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+};
+
+describe('open() per-call elements', () => {
+  it('move mode restores to the originEl passed to open(), not only the default slot', async () => {
+    const origin = document.createElement('section');
+    const content = document.createElement('div');
+    origin.appendChild(content);
+    document.body.appendChild(origin);
+    const pip = createPip();
+
+    await pip.open({ contentEl: content, originEl: origin });
+    expect(content.ownerDocument).not.toBe(document);
+    pip.close();
+
+    expect(content.parentElement).toBe(origin);
+    origin.remove();
+  });
+
+  it('with no origin anywhere, move mode restores to the parent the content had at open time', async () => {
+    const parent = document.createElement('section');
+    const content = document.createElement('div');
+    parent.appendChild(content);
+    document.body.appendChild(parent);
+    const pip = createPip();
+
+    await pip.open({ contentEl: content });
+    pip.close();
+
+    expect(content.parentElement).toBe(parent);
+    parent.remove();
+  });
+
+  it('close() exits video PiP for the video of the contentEl passed to open()', async () => {
+    await withVideoPipOnly(async () => {
+      const { content, video } = videoContent(() => Promise.resolve({}));
+      const exit = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(document, 'pictureInPictureElement', { value: video, configurable: true });
+      (document as any).exitPictureInPicture = exit;
+      const pip = createPip();
+
+      await pip.open({ contentEl: content });
+      pip.close();
+
+      expect(exit).toHaveBeenCalledTimes(1);
+      delete (document as any).pictureInPictureElement;
+      delete (document as any).exitPictureInPicture;
+      content.remove();
+    });
+  });
+});
+
+describe('open() failures reject and reach onError', () => {
+  it('a rejected video PiP request with fallback none rejects and calls onError (Safari NotAllowedError)', async () => {
+    await withVideoPipOnly(async () => {
+      const denied = Object.assign(new Error('denied'), { name: 'NotAllowedError' });
+      const { content } = videoContent(() => Promise.reject(denied));
+      const onError = vi.fn();
+      const onOpen = vi.fn();
+      const pip = createPip({ onError, onOpen });
+
+      await expect(pip.open({ contentEl: content })).rejects.toBe(denied);
+      expect(onError).toHaveBeenCalledWith(denied);
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(pip.isOpen()).toBe(false);
+      content.remove();
+    });
+  });
+
+  it('a rejected video PiP request still falls through to a configured fallback', async () => {
+    await withVideoPipOnly(async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { content } = videoContent(() => Promise.reject(new Error('denied')));
+      const fallback = vi.fn();
+      const onError = vi.fn();
+      const pip = createPip({ fallback, onError });
+
+      await pip.open({ contentEl: content });
+      expect(fallback).toHaveBeenCalledTimes(1);
+      expect(onError).not.toHaveBeenCalled();
+      expect(pip.isOpen()).toBe(true);
+      pip.destroy();
+      content.remove();
+      warn.mockRestore();
+    });
+  });
+
+  it('a throwing custom fallback calls onError, rejects, and leaves the instance closed', async () => {
+    const boom = new Error('fallback boom');
+    const onError = vi.fn();
+    const pip = createPip({ forceFallback: true, fallback: () => { throw boom; }, onError });
+
+    await expect(pip.open()).rejects.toBe(boom);
+    expect(onError).toHaveBeenCalledWith(boom);
+    expect(pip.isOpen()).toBe(false);
+    // Not stranded in isOpening:
+    pip.updateOptions({ fallback: () => {} });
+    await pip.open();
+    expect(pip.isOpen()).toBe(true);
+  });
+
+  it("fallback 'new-tab' without a usable fallbackUrl is unsupported and open() rejects with ERR_INVALID_FALLBACK", async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    for (const fallbackUrl of [undefined, 'javascript:alert(1)']) {
+      const onError = vi.fn();
+      const pip = createPip({ forceFallback: true, fallback: 'new-tab', fallbackUrl, onError });
+      expect(pip.getState().isSupported).toBe(false);
+
+      await expect(pip.open()).rejects.toMatchObject({ code: 'ERR_INVALID_FALLBACK' });
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'ERR_INVALID_FALLBACK' }));
+      expect(pip.isOpen()).toBe(false);
+    }
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it('an error after requestWindow resolved closes the window and runs the teardown hooks', async () => {
+    const boom = new Error('onOpen boom');
+    const onError = vi.fn();
+    const onClose = vi.fn();
+    const pip = createPip({ onOpen: () => { throw boom; }, onError, onClose });
+    const hook = vi.fn();
+    pip.registerTeardown(hook);
+
+    await expect(pip.open()).rejects.toBe(boom);
+    const win = (window as any).documentPictureInPicture.requestWindow.mock.results[0].value;
+    const pipWindow = await win;
+
+    expect(pipWindow.closed).toBe(true);
+    expect(hook).toHaveBeenCalledWith(pipWindow);
+    expect(onError).toHaveBeenCalledWith(boom);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(pip.getState()).toMatchObject({ isOpen: false, pipWindow: null });
+  });
+
+  it('a window that is already closed when requestWindow resolves rejects with ERR_WINDOW_CLOSED', async () => {
+    const dead: any = new EventTarget();
+    dead.closed = true;
+    (window as any).documentPictureInPicture.requestWindow = vi.fn().mockResolvedValue(dead);
+    const onError = vi.fn();
+    const pip = createPip({ onError });
+
+    await expect(pip.open()).rejects.toMatchObject({ code: 'ERR_WINDOW_CLOSED' });
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'ERR_WINDOW_CLOSED' }));
+    expect(pip.isOpen()).toBe(false);
+  });
+
+  it('a throwing onError does not replace the original rejection', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const original = new Error('Not allowed');
+    (window as any).documentPictureInPicture.requestWindow = vi.fn().mockRejectedValue(original);
+    const pip = createPip({ onError: () => { throw new Error('handler bug'); } });
+
+    await expect(pip.open()).rejects.toBe(original);
+    expect(errorSpy).toHaveBeenCalledWith('[pip-it-up] onError threw:', expect.any(Error));
+    errorSpy.mockRestore();
+  });
+});
+
+describe('close()/destroy() during a pending open()', () => {
+  it('close() while requestWindow is pending closes the late window and rejects with ERR_OPEN_ABORTED', async () => {
+    const real = (window as any).documentPictureInPicture.requestWindow;
+    const gate = deferred<void>();
+    const requestWindow = vi.fn(async (o: unknown) => {
+      await gate.promise;
+      return real(o);
+    });
+    (window as any).documentPictureInPicture.requestWindow = requestWindow;
+    const onError = vi.fn();
+    const onOpen = vi.fn();
+    const pip = createPip({ onError, onOpen });
+
+    const opening = pip.open();
+    pip.close();
+    // Still one request in flight: no overlapping requestWindow (MAINTENANCE_GUIDE Section 5).
+    await pip.open();
+    expect(requestWindow).toHaveBeenCalledTimes(1);
+
+    gate.resolve();
+    await expect(opening).rejects.toMatchObject({ code: 'ERR_OPEN_ABORTED', name: 'AbortError' });
+    const pipWindow = await requestWindow.mock.results[0].value;
+    expect(pipWindow.closed).toBe(true);
+    expect(pip.isOpen()).toBe(false);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+
+    (window as any).documentPictureInPicture.requestWindow = real;
+    await pip.open();
+    expect(pip.isOpen()).toBe(true);
+  });
+
+  it('destroy() while onBeforeOpen is pending never requests a window', async () => {
+    const gate = deferred<boolean>();
+    const requestWindow = (window as any).documentPictureInPicture.requestWindow;
+    const pip = createPip({ onBeforeOpen: () => gate.promise });
+
+    const opening = pip.open();
+    pip.destroy();
+    gate.resolve(true);
+
+    await expect(opening).rejects.toMatchObject({ code: 'ERR_OPEN_ABORTED' });
+    expect(requestWindow).not.toHaveBeenCalled();
+  });
+
+  it('close() while the video PiP request is pending exits video PiP and rejects', async () => {
+    await withVideoPipOnly(async () => {
+      const gate = deferred<void>();
+      const { content, video } = videoContent(() => gate.promise);
+      const exit = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(document, 'pictureInPictureElement', { value: video, configurable: true });
+      (document as any).exitPictureInPicture = exit;
+      const onOpen = vi.fn();
+      const pip = createPip({ onOpen });
+
+      const opening = pip.open({ contentEl: content });
+      pip.close();
+      gate.resolve();
+
+      await expect(opening).rejects.toMatchObject({ code: 'ERR_OPEN_ABORTED' });
+      expect(exit).toHaveBeenCalledTimes(1);
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(pip.isOpen()).toBe(false);
+      delete (document as any).pictureInPictureElement;
+      delete (document as any).exitPictureInPicture;
+      content.remove();
+    });
+  });
+});
+
+describe('isSupported recomputation', () => {
+  it('a <video> added inside the same contentEl flips isSupported on the next setDefaultElements', async () => {
+    await withVideoPipOnly(async () => {
+      const content = document.createElement('div');
+      const pip = createPip();
+      pip.setDefaultElements({ contentEl: content });
+      expect(pip.getState().isSupported).toBe(false);
+
+      content.appendChild(document.createElement('video'));
+      pip.setDefaultElements({ contentEl: content }); // same node: a no-op merge
+
+      expect(pip.getState().isSupported).toBe(true);
+    });
+  });
+
+  it('updateOptions re-evaluates isSupported', () => {
+    const pip = createPip({ forceFallback: true });
+    expect(pip.getState().isSupported).toBe(false);
+    pip.updateOptions({ fallback: () => {} });
+    expect(pip.getState().isSupported).toBe(true);
+    pip.updateOptions({ disableVideoPip: true, fallback: 'none' });
+    expect(pip.getState().isSupported).toBe(false);
+  });
+});
+
+describe('focus, selection and scroll are restored after the content is back', () => {
+  it('restores focus and selection on a node that is back in the opener', async () => {
+    const origin = document.createElement('section');
+    const content = document.createElement('div');
+    const input = document.createElement('input');
+    input.value = 'hello world';
+    content.appendChild(input);
+    origin.appendChild(content);
+    document.body.appendChild(origin);
+    input.focus();
+    input.setSelectionRange(2, 5);
+    const pip = createPip();
+    pip.setDefaultElements({ contentEl: content, originEl: origin });
+
+    await pip.open();
+    input.blur();
+    pip.close();
+
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 5]);
+    origin.remove();
+  });
+
+  it('writes the saved scroll offset only once the content is in the opener document', async () => {
+    const origin = document.createElement('section');
+    const content = document.createElement('div');
+    origin.appendChild(content);
+    document.body.appendChild(origin);
+    let top = 120;
+    const writtenIn: Document[] = [];
+    Object.defineProperty(content, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (v: number) => {
+        top = v;
+        writtenIn.push(content.ownerDocument);
+      },
+    });
+    const pip = createPip();
+    pip.setDefaultElements({ contentEl: content, originEl: origin });
+
+    await pip.open();
+    pip.close();
+
+    expect(writtenIn).toEqual([document]);
+    expect(top).toBe(120);
+    origin.remove();
+  });
+});
+
+describe('the session closed before open() returned', () => {
+  const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r(undefined)));
+
+  it('close() from onOpen (Document PiP): no onPipWindowReady, hooks run once, no disposer leaks into the next session', async () => {
+    const onPipWindowReady = vi.fn();
+    const onClose = vi.fn();
+    let closeInOnOpen = true;
+    const pip = createPip({
+      onPipWindowReady,
+      onClose,
+      onOpen: () => { if (closeInOnOpen) pip.close(); },
+    });
+    const hook = vi.fn();
+    pip.registerTeardown(hook);
+
+    await pip.open();
+    await nextFrame();
+    expect(pip.isOpen()).toBe(false);
+    expect(onPipWindowReady).not.toHaveBeenCalled();
+    expect(hook).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // A following cycle cancels only its own frame: a disposer leaked from the closed session
+    // would run here too.
+    closeInOnOpen = false;
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame');
+    await pip.open();
+    await nextFrame();
+    expect(onPipWindowReady).toHaveBeenCalledTimes(1);
+    pip.close();
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(hook).toHaveBeenCalledTimes(2);
+    cancel.mockRestore();
+  });
+
+  it('close() from a state subscriber (Document PiP): onOpen and onPipWindowReady are not called after onClose', async () => {
+    const events: string[] = [];
+    const onPipWindowReady = vi.fn();
+    const pip = createPip({
+      onPipWindowReady,
+      onOpen: () => events.push('open'),
+      onClose: () => events.push('close'),
+    });
+    const hook = vi.fn();
+    pip.registerTeardown(hook);
+    const unsubscribe = pip.subscribe(() => {
+      if (pip.getState().isOpen) pip.close();
+    });
+
+    await pip.open();
+    await nextFrame();
+    expect(events).toEqual(['close']);
+    expect(onPipWindowReady).not.toHaveBeenCalled();
+    expect(hook).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    await pip.open();
+    expect(pip.isOpen()).toBe(true);
+    pip.close();
+    expect(hook).toHaveBeenCalledTimes(2);
+  });
+
+  it('close() from a state subscriber (fallback path): onOpen is not called after onClose', async () => {
+    const events: string[] = [];
+    const dispose = vi.fn();
+    const pip = createPip({
+      forceFallback: true,
+      fallback: () => dispose,
+      onOpen: () => events.push('open'),
+      onClose: () => events.push('close'),
+    });
+    const unsubscribe = pip.subscribe(() => {
+      if (pip.getState().isOpen) pip.close();
+    });
+
+    await pip.open();
+    expect(events).toEqual(['close']);
+    expect(dispose).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    await pip.open();
+    expect(pip.isOpen()).toBe(true);
+    pip.close();
+    expect(dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it('close() then open() from onOpen (fallback path) leaves the new session open and gated', async () => {
+    const fallback = vi.fn();
+    let reopen = true;
+    const pip = createPip({
+      forceFallback: true,
+      fallback,
+      onOpen: () => {
+        if (!reopen) return;
+        reopen = false;
+        pip.close();
+        void pip.open();
+      },
+    });
+
+    await pip.open();
+    expect(fallback).toHaveBeenCalledTimes(2);
+    expect(pip.isOpen()).toBe(true);
+    await pip.open(); // no-op: already open
+    expect(fallback).toHaveBeenCalledTimes(2);
+    pip.close();
+    expect(pip.isOpen()).toBe(false);
+  });
+
+  it('onOpen closing then throwing: teardown hooks run once, open() rejects and reports', async () => {
+    const boom = new Error('onOpen boom');
+    const onError = vi.fn();
+    const onClose = vi.fn();
+    const onPipWindowReady = vi.fn();
+    let fail = true;
+    const pip = createPip({
+      onError,
+      onClose,
+      onPipWindowReady,
+      onOpen: () => {
+        if (!fail) return;
+        pip.close();
+        throw boom;
+      },
+    });
+    const hook = vi.fn();
+    pip.registerTeardown(hook);
+
+    await expect(pip.open()).rejects.toBe(boom);
+    await nextFrame();
+    expect(hook).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(boom);
+    expect(onPipWindowReady).not.toHaveBeenCalled();
+    expect(pip.isOpen()).toBe(false);
+
+    fail = false;
+    await pip.open();
+    expect(pip.isOpen()).toBe(true);
+    pip.close();
+    expect(hook).toHaveBeenCalledTimes(2);
+  });
+});
