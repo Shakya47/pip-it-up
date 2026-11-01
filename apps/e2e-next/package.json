@@ -12,12 +12,12 @@
     "@pip-it-up/e2e-contract": "workspace:*",
     "@pip-it-up/e2e-react": "workspace:*",
     "@pip-it-up/react": "workspace:*",
-    "next": "^16.3.6",
+    "next": "^16.4.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
-    "@types/node": "^24.12.3",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.4.0"
