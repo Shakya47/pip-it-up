@@ -22,8 +22,8 @@
     "@pip-it-up/core": "workspace:*",
     "@pip-it-up/e2e-contract": "workspace:*",
     "@pip-it-up/react": "workspace:*",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^24.12.3",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.19.2",
     "typescript": "^5.4.0"
   }
 }
